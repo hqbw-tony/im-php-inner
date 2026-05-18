@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>文件编辑</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="keywords" content="" />
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0,viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no" />
+    <!-- <script type="text/javascript" src="http://39.106.36.245:5433/web-apps/apps/api/documents/api.js"></script> -->
+    <script type="text/javascript" src="https://onlyoffice.lcoce.com/web-apps/apps/api/documents/api.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .onlyofficeBox {
+            height: 100%;
+            padding: 0;
+            position: absolute;
+            width: 100%;
+        }
+    </style>
+</head>
+
+
+<body>
+    <div class='onlyofficeBox'>
+        <div id="placeholder"></div>
+    </div>
+
+</body>
+<script>
+    new DocsAPI.DocEditor("placeholder", {
+        "document": {
+            "fileType": "docx",
+            "key": "Khirz6zTPdfd71232123asdasd",
+            "title": "法律顾问流程.docx",
+            "url": "https://document.lcoce.com/disk_VAO34jXqWoQ2/folder_2G9r4xOGavwy/5f8502435b650.docx"
+        },
+        "documentType": "word",
+        'editorConfig': {
+            'lang': 'zh-CN'
+        },
+        'lang': 'zh-CN'
+    });
+</script>
+
+</html>

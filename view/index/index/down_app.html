@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html style="font-size: 55.2px;">
+<head design-width="750">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"> 
+  <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no"> 
+  <meta name="apple-mobile-web-app-capable" content="yes"> 
+  <meta name="apple-mobile-web-app-status-bar-style" content="black"> 
+  <meta name="format-detection" content="telephone=no"> 
+  <title>应用下载</title> 
+  <link rel="stylesheet" href="__STATIC__/down/css/reset.css">
+  <link rel="stylesheet" href="__STATIC__/down/css/style.css">
+  <link rel="stylesheet" href="__STATIC__/down/css/swiper.min.css"> 
+  <script src="__STATIC__/down/js/auto-size.js"></script>
+  <style>@media screen and (min-width:750px){.center{width:750px;margin-left:-375px;left:50%;}}
+    #app_code{
+        width:210px;
+        margin:0 auto;
+    }
+  </style>
+</head> 
+<body ontouchstart="" onmouseover=""> 
+  <div class="mobile-wrap center"> 
+    <main> 
+      <div class="appItem"> 
+        <div class="left">
+          <img src="{$config.logo}" alt="">
+        </div> 
+        <div class="right"> 
+          <strong>{$config.name}</strong> 
+          <p>{$config.description}</p> 
+          <div class="installBox"> 
+            <a class="down downapp" href="javascript:;">下载</a> 
+            <a class="doubt" href="https://support.apple.com/zh-cn/102400" target='_blank'>?</a> 
+          </div> 
+        </div> 
+        <div class="appTip" style="margin-bottom: 20px;"> 
+            <div class="tipss">声明：请注意甄别APP内容，谨防上当受骗！</div> 
+        </div> 
+        
+        <div class="comment" align="center" {if condition="request()->isMobile()"} style="display: none;" {/if}> 
+            <div id="app_code"> 
+             
+            </div> 
+        </div>
+        {if condition="!request()->isMobile()"}
+        <div class="pc-box appInfo">
+            <div>桌面端下载：</div>
+            <div style="display: flex;justify-content: center;width:400px;margin:0 auto" align="center">
+                {if condition="!empty($client.win_webclip)"}
+                <div class="downwin" style="margin-right:20px">
+                    <a class="down" href="{$client.win_webclip}" target="_blank">
+                       下载win版本
+                    </a>
+                </div>
+                {/if}
+                {if condition="!empty($client.mac_webclip)"}
+                <div class="downwin" style="margin-left:20px">
+                    <a class="down" href="{$client.mac_webclip}" target="_blank">
+                        下载MAC版本
+                    </a>
+                </div>
+                {/if}
+                {if condition="empty($client.win_webclip) && empty($client.mac_webclip)"}
+                    暂无桌面版安装包
+                {/if}
+            </div>
+        </div>
+        {/if}
+        <div class="appInfo" align="center" style="font-size: 14px;color:#999"> 
+           V- {$Think.config.app.app_version}</p>
+        </div> 
+      </div> 
+    </main> 
+ 
+      </div> 
+    </div> 
+    <div class="pupPic">
+      <img src="__STATIC__/down/img/5cbc4_5_1242_2007.png" alt="">
+    </div> 
+  </div>
+  <script src="__STATIC__/down/js/jquery-2.2.4.min.js"></script>
+  <script src="__STATIC__/down/js/swiper-4.2.0.min.js"></script>
+  <script src="__STATIC__/down/js/qrcode.min.js"></script>
+  <script>
+    new QRCode(document.getElementById('app_code'), { text: location.href, width: 200, height: 200 });
+
+    var ua = navigator.userAgent.toLowerCase();
+    var Sys = {};
+    var s;
+    (s = ua.match(/version\/([\d.]+).*safari/)) ? Sys.safari = s[1] : 0;
+
+    
+    function getIOSVersion() {
+      var match = ua.match(/os ([\d_]+) like mac os x/i);
+      if (match) {
+        return match[1].replace(/_/g, '.');
+      }
+      return null;
+    }
+
+    
+    function downloadFn() {
+        let iosUrl='{$client.ios_webclip}';
+        if(!iosUrl){
+            alert('无安装包');
+        }
+        window.location.href = iosUrl;
+        setTimeout(function () {
+            var iOSVersion = getIOSVersion();
+            if (iOSVersion && parseFloat(iOSVersion) >= 17) {
+            alert('请手动安装-转到：设置-通用-（VPN和设备管理）配置文件-安装');
+            } else {
+            window.location.href = "./unpackage/app.mobileprovision";
+            }
+        }, 3500);
+    }
+
+    if (/^win/.test(navigator.platform.toLowerCase())) {
+        $('.pc-box').show();
+        downapk();
+    } else if (/(iPhone|iPad|iPod|iOS|mac)/i.test(ua)) {
+      if (Sys.safari) {
+        $(".downapp").attr("href", "javascript:downloadFn();");
+       
+        $(".doubt").click(function (event) {
+          $(".pup").fadeIn();
+          var swiper = new Swiper('.swiper-container', {
+            loop: true,
+            pagination: {
+              el: '.swiper-pagination'
+            }
+          });
+        });
+      }else{
+        $("body").click(function (event) {
+          $(".pupPic").show();
+        });
+      }
+    } else if (ua.indexOf('qq') > -1 && ua.indexOf('mqqbrowser') < 0) {
+      $(".downapp").attr("href", "###");
+      $("body").click(function (event) {
+        $(".pupPic").show();
+      });
+    }
+ 
+    else{
+      downapk();
+    }
+
+    function downapk(){
+      $(".downapp").attr("href", "{$client.android_webclip}");
+     
+      $(".doubt").click(function (event) {
+        $(".pup").fadeIn();
+        var swiper = new Swiper('.swiper-container', {
+          loop: true,
+          pagination: {
+            el: '.swiper-pagination'
+          }
+        });
+      });
+    }
+    // if (/(Android)/i.test(ua)) 
+    $(".colse").click(function (event) {
+      $(".pup").fadeOut();
+    });
+
+    $(function(){
+        $("#think_page_trace_open").remove();
+    })
+  </script>   
+</body>
+</html>

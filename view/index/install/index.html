@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <title>{$Think.config.app.app_name}简易安装向导</title>
+    <link rel="stylesheet" href="__STATIC__/elementui/element-ui.css">
+    <script src="__STATIC__/js/vue.js"></script>
+    <script src="__STATIC__/js/jquery-2.0.3.min.js"></script>
+    <script src="__STATIC__/elementui/element-ui.js"></script>
+</head>
+
+<body>
+    <div id="el-app">
+        <el-card class="box-card header-card" style="margin-bottom: 20px;">
+            <header class="header" align="center">
+                <div class="header-content">
+                    <div class="header-logo">
+                        <el-avatar src="{$Think.config.app.app_logo}" :size="50">
+                        </el-avatar>
+                    </div>
+                    <div class="contact-us" align="left">
+                        <div><a class="main-color" href="http://im.raingad.com/index.html"> {$Think.config.app.app_name} </a>for {$Think.config.app.app_verison} 安装向导</div>
+                        <div>QQ交流群： <a href="https://qm.qq.com/q/RgHdvLGiMk" target="_blank">1031495465</a></div>
+                    </div>
+                </div>
+            </header>
+        </el-card>
+
+        <el-card class="container box-card" style="padding:0">
+            <el-steps :active="action" simple finish-status="success">
+                <el-step title="IM介绍"> </el-step>
+                <el-step title="环境检测"> </el-step>
+                <el-step title="连接数据库"> </el-step>
+                <el-step title="安装完成"> </el-step>
+            </el-steps>
+            <div class="step-item" v-if="action==0">
+                <div class="setting-version">
+                    <h2>应用介绍</h2>
+                    <p><span class="main-color"> {$Think.config.app.app_name} </span>是由个人开发者《<a href="https://gitee.com/lvzhe-lcoce" target="_blank">raingad@foxmail.com</a>》开发，以下简称“本软件”，用户出于自愿而使用本软件，必须了解使用本软件的风险，本软件只用作学习交流使用，我们不承诺对免费用户提供任何形式的技术支持，并且不能作为商业用途使用，若因为使用本软件产生的侵权行为一律与作者无关。严禁将源码用于木马、病毒、色情、赌博、诈骗等违反国家法律法规行业，如发现有使用本软件进行非法活动，将向有关部门举报和协助相关行政执法机关清查！本软件作为开源项目提供，在法律允许的最大范围内，开发者不对软件的功能性、安全性或适用性作出任何形式的保证，无论是明示的还是暗示的。
+
+                    <h2>免责声明</h2>
+                    <h3>1. 基本声明</h3>
+                    <p>本软件作为开源项目提供，在法律允许的最大范围内，开发者不对软件的功能性、安全性或适用性作出任何形式的保证，无论是明示的还是暗示的。</p>
+                    <h3>2. 使用风险声明</h3>
+                    <p>2.1 本软件按&quot;现状&quot;提供，使用者需自行承担使用本软件的全部风险。<br />
+                    2.2 开发者不对软件的运行可靠性、适用性或与特定需求的兼容性提供任何保证。<br />
+                    2.3 使用者应在充分评估风险的基础上决定是否使用本软件。</p>
+                    <h3>3. 责任限制与豁免</h3>
+                    <p>在任何情况下，开发者及其关联方均不对因使用或无法使用本软件而导致的任何损失或损害承担责任，包括但不限于：</p>
+                    <ul>
+                    <li>数据丢失或泄露</li>
+                    <li>利润损失</li>
+                    <li>系统中断</li>
+                    <li>商业机会损失</li>
+                    <li>其他直接、间接或衍生性损失</li>
+                    </ul>
+                    <h3>4. 用户义务与责任</h3>
+                    <p>4.1 使用者应确保其对本软件的使用符合所有适用的法律法规要求。<br />
+                    4.2 对本软件进行修改、分发或二次开发的使用者，需自行承担由此产生的全部责任，包括但不限于：</p>
+                    <ul>
+                    <li>法律风险</li>
+                    <li>知识产权风险</li>
+                    <li>安全风险</li>
+                    <li>数据保护责任</li>
+                    </ul>
+                    <h3>5. 开发者权利</h3>
+                    <p>5.1 开发者保留对本软件进行更新、修改、调整或停止维护的权利。<br />
+                    5.2 开发者可能在不事先通知的情况下修改本软件或相关服务。<br />
+                    5.3 开发者保留对本免责声明进行修改的权利。</p>
+                    <h3>6. 其他条款</h3>
+                    <p>6.1 本免责声明的任何部分被认定为无效或不可执行时，其余部分仍然有效。<br />
+                    6.2 本免责声明的最终解释权归开发者所有。<br />
+                    6.3 如果本软件涉及部分三方开源插件，如有侵权行为，请联系作者删除！</p>
+                        
+                    </p>
+                    <h2> 软件地址：</h2>
+                    <p>前端地址：<a href="https://gitee.com/raingad/im-chat-front" target="_blank">https://gitee.com/raingad/im-chat-front</a></p>
+                    <p>后端地址：<a href="https://gitee.com/raingad/im-instant-chat" target="_blank">https://gitee.com/raingad/im-instant-chat</a></p>
+
+                    <h2> 支持功能：</h2>
+                    <ul>
+                        <li v-for="item in funcList">${item.text}</li>
+                    </ul>
+
+                </div>
+                <div class="setting-version" style="color: #a6a6a6">
+                    <p>后端技术栈：thinkphp6+workerman+redis</p>
+                    <p>前端技术栈：vue+Lemon-IMUI+element-UI</p>
+                    <p>桌面端：vue2+Lemon-IMUI+element-UI + electron [联系作者，捐赠获取]</p>
+                    <p>移动端：uniapp for vue3 + pinia [联系作者，捐赠获取]</p>
+                </div>
+            </div>
+            <div class="step-item" v-if="action==1">
+                <h4>环境状态</h4>
+                <el-table :data="env" border style="width: 100%" size="mini">
+                    <el-table-column prop="name" label="检查项" align="center">
+                    </el-table-column>
+                    <el-table-column prop="description" label="建议要求" width="300px" align="center">
+                    </el-table-column>
+                    <el-table-column prop="value" label="当前环境" align="center">
+                    </el-table-column>
+                    <el-table-column prop="status" label="是否通过" align="center">
+                        <template slot-scope="scope">
+                            <span :class="scope.row.status === 'ok' ? 'fc-success' : 'fc-danger'">${scope.row.status}</span>
+                          </template>
+                    </el-table-column>
+
+                </el-table>
+                <h4>文件夹权限</h4>
+                <el-table :data="dir" border style="width: 100%" size="mini">
+                    <el-table-column prop="dir" label="目录检查项" width="300px" align="center">
+                    </el-table-column>
+                    <el-table-column prop="value" label="当前环境" align="center">
+                    </el-table-column>
+                    <el-table-column prop="status" label="是否通过" align="center">
+                        <template slot-scope="scope">
+                            <span :class="scope.row.status === 'ok' ? 'fc-success' : 'fc-danger'">${scope.row.status}</span>
+                          </template>
+                    </el-table-column>
+                </el-table>
+                <div align="center" style="margin-top:15px;">
+                    <el-button round @click="reCheckEnv" :loading="loading">重新检测</el-button>
+                </div>
+
+            </div>
+            <div class="step-item" v-if="action==2" align="center">
+                <div class="step-form">
+                    <el-alert
+                        title="如果未设置成功，请将根目录下[example.env]更名为为[.env]，并填写好相关参数"
+                        type="warning">
+                    </el-alert>
+                    
+                    <el-form ref="form" :model="form" label-width="120px">
+                        <h4>请填写网站信息</h4>
+                        <el-form-item label="网站域名">
+                            <el-input v-model="form.domain"></el-input>
+                        </el-form-item>
+                        <el-alert
+                            title="域名需要带协议头端口号(如果不是80或者443)：http(s)://域名:8888，尾部不要带'/'."
+                            type="info">
+                        </el-alert>
+                        <h4>请填写数据库信息</h4>
+                        <el-form-item label="服务器地址">
+                            <el-input v-model="form.hostname">
+                                <template slot="append">数据库地址一般为：127.0.0.1</template>
+                            </el-input>
+
+                        </el-form-item>
+                        <el-form-item label="数据库">
+                            <el-input v-model="form.database"></el-input>
+                        </el-form-item>
+                        <el-form-item label="表前缀">
+                            <el-input v-model="form.prefix">
+                                <template slot="append">默认为yu_</template>
+                            </el-input>
+                        </el-form-item>
+                        <el-form-item label="数据库用户名">
+                            <el-input v-model="form.username">
+                                <template slot="append">生产环境建议创建独立账户</template>
+                            </el-input>
+                        </el-form-item>
+                        <el-form-item label="数据库密码">
+                            <el-input v-model="form.password"></el-input>
+                        </el-form-item>
+                        <el-form-item label="端口">
+                            <el-input v-model="form.hostport">
+                                <template slot="append">数据库端口一般为：3306</template>
+                            </el-input>
+                        </el-form-item>
+                        <h4>redis配置</h4>
+                        <el-form-item label="服务器地址">
+                            <el-input v-model="form.redishost">
+                                <template slot="append">默认为127.0.0.1</template>
+                            </el-input>
+                        </el-form-item>
+                        <el-form-item label="端口">
+                            <el-input v-model="form.redisport">
+                                <template slot="append">默认为6379</template>
+                            </el-input>
+                        </el-form-item>
+                        <el-form-item label="密码">
+                            <el-input v-model="form.redispass">
+                                <template slot="append">可以为空</template>
+                            </el-input>
+                        </el-form-item>
+                    </el-form>
+                    
+                </div>
+
+            </div>
+            <div class="step-item" v-if="action==3">
+                <p>开始安装...</p>
+                <div id='install-process'>
+                </div>
+
+            </div>
+            <div class="step-item" v-if="action==4">
+                <div class="setting-version">
+                    <p>您已成功安装本程序，现在您还需最后一步即可使用聊天程序！</p>
+                    <p>管理员账号：<b style="font-size:18px">administrator</b>；密码：<b style="font-size:18px">123456</b>；进入后再聊天界面的左下角可以进入后台。</p>
+                    <h4>启动消息推送</h4>
+                    <p>进入系统后台管理后，在系统服务的右上方点击启动图标，启动服务，如果无法启动请参阅文档</p>
+                    <p>windows不再提供支持</p>
+                    <p>PS：消息推送必须在nginx配置文件中配置反向代理，代码已经贴到readme.md里面了。</p>
+                    <h4>前台地址：</h4>
+                    <p>浏览器访问：<a href="{:getMainHost()}/index.html">{:getMainHost()}/index.html</a></p>
+                    <div>QQ交流群： <a href="https://qm.qq.com/q/RgHdvLGiMk" target="_blank">1031495465</a></div>
+                </div>
+            </div>
+            <hr style="border: 1px solid #f5f5f5;">
+            <div class="next-button" align="center" v-if="!isDone">
+                <el-button @click="pre" :disabled="preDisabled" v-text="preText"></el-button>
+                <el-button type="primary" @click="next" :disabled="nextDisabled" v-text="nextText"></el-button>
+            </div>
+            <div class="next-button" align="center" v-if="isDone">
+                <el-button type="success" @click="openSys" v-text="doneText"> </el-button>
+            </div>
+
+        </el-card>
+
+        <div class="footer-wrapper" align="center">
+            <footer class="footer">
+                ©{:date("Y")} {$Think.config.app.app_name} for {$Think.config.app.app_version}
+            </footer>
+        </div>
+    </div>
+
+</body>
+<script>
+    var app = new Vue({
+        delimiters: ['${', '}'],
+        el: '#el-app',
+        data() {
+            return {
+                action: 0,
+                preDisabled: true,
+                nextDisabled: false,
+                preText: "上一步",
+                nextText: "下一步",
+                isDone: false,
+                doneText: '进入系统',
+                env: [],
+                dir: [],
+                database: [],
+                status: 1,
+                loading: false,
+                form: {
+                    domain:'',
+                    hostname: '127.0.0.1',
+                    database: 'im',
+                    username: 'root',
+                    password: '',
+                    hostport: 3306,
+                    prefix: 'yu_',
+                    redishost: '127.0.0.1',
+                    redisport: '6379',
+                    redispass: '',
+                },
+                funcList:[
+                    {
+                        icon:'el-icon-chat-line-round',
+                        text:'支持单聊和群聊，支持发送表情、图片、语音、视频和文件消息',
+                    },
+                    {
+                        icon:'el-icon-potato-strips',
+                        text:'单聊支持消息已读未读的状态显示，在线状态显示',
+                    },
+                    {
+                        icon:'el-icon-user',
+                        text:'群聊创建、删除和群成员管理、群公告、群禁言、@群成员等',
+                    },
+                    {
+                        icon:'el-icon-ice-cream-round',
+                        text:'支持置顶联系人，消息免打扰；支持设置新消息声音提醒，浏览器通知',
+                    },
+                    {
+                        icon:'el-icon-video-camera',
+                        text:'支持一对一音视频通话（和移动端不互通）',
+                    },
+                    {
+                        icon:'el-icon-milk-tea',
+                        text:'支持文件、图片和绝大部分媒体文件在线预览',
+                    },
+                    {
+                        icon:'el-icon-mobile-phone',
+                        text:'支持移动端（由uniapp开发，可打包H5、APP和小程序），支持简易后台管理',
+                    },
+                    {
+                        icon:'el-icon-mobile-phone',
+                        text:'支持企业模式和社交模式，社交模式支持注册、添加好友功能',
+                    },
+
+                ]
+            }
+        },
+        watch: {
+            action(val) {
+                this.status = 1;
+                if (val == 0) {
+                    this.preDisabled = true;
+                } else {
+                    this.preDisabled = false;
+                }
+                if (val == 1) {
+                    this.getEnv();
+                }
+                if (val == 3) {
+                    this.process('正在写入数据库...');
+                    var _this = this;
+                    this.status=0;
+                    setTimeout(function() {
+                        _this.install()
+                    }, 1000);
+                } else {
+                    $('#install-process').html('');
+                }
+                if (val == 4) {
+                    this.isDone = true;
+                }
+            },
+            status(val) {
+                if (val == 0) {
+                    this.nextDisabled = true;
+                } else {
+                    this.nextDisabled = false;
+                }
+            }
+        },
+        mounted(){
+            let domain="{:getMainHost()}";
+            this.form.domain=domain
+        },
+        methods: {
+            next() {
+                if (this.action == 2) {
+                    this.checkDatabase();
+                } else if (this.action < 4) {
+                    this.action++;
+                }
+            },
+            pre() {
+                if (this.action > 0) {
+                    this.action--;
+                }
+            },
+            openSys() {
+                window.location.href = "{:getMainHost()}/index.html";
+            },
+            getEnv() {
+                var _this = this;
+                $.post("{:url('install/getEnv')}", {}, function(res) {
+                    if (res.code == 0) {
+                        _this.env = res.data.env;
+                        _this.dir = res.data.dir;
+                        _this.status = res.data.status;
+                    }
+                    _this.loading = false;
+                })
+            },
+            checkDatabase() {
+                var _this = this;
+                $.post("{:url('install/checkDatabase')}", {
+                    form: this.form
+                }, function(res) {
+                    if (res.code == 0) {
+                        _this.status = res.data.status;
+                        _this.action++;
+                    } else {
+                        _this.$message.error(res.msg);
+                    }
+                    _this.loading = false;
+                })
+            },
+            install() {
+                this.status = 0;
+                var _this = this;
+                $.post("{:url('install/install')}", {}, function(res) {
+                    if (res.code == 0) {
+                        setTimeout(function() {
+                            _this.process('数据库写入成功，执行sql语句 ' + 1 + ' 条！');
+                            setTimeout(function() {
+                                _this.process('正在跳转...');
+                                setTimeout(function() {
+                                    _this.action++;
+                                }, 1000);
+                            }, 1000);
+                        }, 1000);
+                        _this.status = res.data.status;
+                    } else {
+                        setTimeout(_this.process("<span class='fc-danger'>" + res.msg + "</span>"), 1000);
+                        _this.isDone = true;
+                    }
+                    _this.loading = false;
+                })
+            },
+            reCheckEnv() {
+                this.loading = true;
+                this.getEnv();
+            },
+            process(text) {
+                var html = "<p>" + text + "</p>";
+                this.$nextTick(() => {
+                    $('#install-process').append(html);
+                });
+
+            }
+
+        }
+    })
+</script>
+<style>
+    body {
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 0
+    }
+    
+    .header-card {
+        margin-bottom: 15px;
+    }
+    
+    .header-card .el-card__body {
+        padding: 10px;
+    }
+    
+    .header-content {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        width: 320px;
+    }
+    
+    .header-logo {
+        margin-right: 20px;
+    }
+    
+    .contact-us {
+        margin: 10px 0;
+    }
+    
+    .main-color {
+        color: #409eff;
+    }
+    
+    .step-item {
+        height: calc(100vh - 340px);
+        overflow: auto;
+        padding: 20px;
+    }
+    
+    .container {
+        width: 800px;
+        margin: 0 auto;
+    }
+    
+    .container .el-card__body {
+        padding: 0
+    }
+    
+    .next-button {
+        margin: 12px 0;
+    }
+    
+    .setting-version,
+    .install-process {
+        line-height: 1.3;
+    }
+    
+    .step-form {
+        width: 600px
+    }
+    
+    .el-input-group__append {
+        width: 190px;
+    }
+    
+    .footer-wrapper {
+        margin: 15px auto;
+        color: #888888
+    }
+    
+    .fc-danger {
+        color: #f56c6c;
+    }
+    
+    .fc-warning {
+        color: #e6a23c;
+    }
+    
+    .fc-success {
+        color: #67c23a;
+    }
+    
+    .fc-info {
+        color: #909399;
+    }
+    
+    .fc-primary {
+        color: #409eff;
+    }
+</style>
+
+</html>
