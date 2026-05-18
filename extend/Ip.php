@@ -22,17 +22,21 @@ class Ip
 
     public static function find($ip)
     {
-        if (empty($ip) === TRUE)
+        $nip = self::normalizeIp($ip);
+        if ($nip === '')
         {
-            return 'N/A';
+            return self::emptyLocation();
         }
 
-        $nip   = gethostbyname($ip);
-        $ipdot = explode('.', $nip);
+        if (filter_var($nip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE)
+        {
+            return self::ipv6Location($nip);
+        }
 
+        $ipdot = explode('.', $nip);
         if ($ipdot[0] < 0 || $ipdot[0] > 255 || count($ipdot) !== 4)
         {
-            return 'N/A';
+            return self::emptyLocation();
         }
 
         if (isset(self::$cached[$nip]) === TRUE)
@@ -65,7 +69,7 @@ class Ip
 
         if ($index_offset === NULL)
         {
-            return 'N/A';
+            return self::emptyLocation();
         }
 
         fseek(self::$fp, self::$offset['len'] + $index_offset['len'] - 1024);
@@ -73,6 +77,62 @@ class Ip
         self::$cached[$nip] = explode("\t", fread(self::$fp, $index_length['len']));
 
         return self::$cached[$nip];
+    }
+
+    private static function normalizeIp($ip)
+    {
+        $ip = trim((string)$ip);
+        if ($ip === '')
+        {
+            return '';
+        }
+
+        if (strpos($ip, ',') !== FALSE)
+        {
+            $parts = explode(',', $ip);
+            $ip = trim($parts[0]);
+        }
+
+        if (isset($ip[0]) && $ip[0] === '[')
+        {
+            $end = strpos($ip, ']');
+            if ($end !== FALSE)
+            {
+                $ip = substr($ip, 1, $end - 1);
+            }
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== FALSE)
+        {
+            return $ip;
+        }
+
+        if (preg_match('/^(.+):\d+$/', $ip, $matches) && filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== FALSE)
+        {
+            return $matches[1];
+        }
+
+        if (preg_match('/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i', $ip, $matches) && filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== FALSE)
+        {
+            return $matches[1];
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE)
+        {
+            return $ip;
+        }
+
+        return '';
+    }
+
+    private static function emptyLocation()
+    {
+        return array('N/A');
+    }
+
+    private static function ipv6Location($ip)
+    {
+        return array('IPv6');
     }
 
     private static function init()
