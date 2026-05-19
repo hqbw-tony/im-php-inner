@@ -287,7 +287,7 @@ class Im extends BaseController
         }
         // 如果是查询@数据
         if($is_at){
-            $atList=Db::name('message')->where($map)->where($where)->whereFindInSet('at',$this->userInfo['user_id'])->order('msg_id desc')->select()->toArray();
+            $atList=Message::getAtList($map,$where,$this->userInfo['user_id']);
             if($atList){
                 $data = $this->recombileMsg($atList,false);
                 Message::setAtread($data,$this->userInfo['user_id']);
@@ -308,7 +308,7 @@ class Im extends BaseController
         // 如果是群聊并且是第一页消息，需要推送@数据给用户
         if($param['is_group']==1 && $param['page']==1){
             $isPush=Cache::get('atMsgPush'.$chat_identify) ?? '';
-            $atList=Db::name('message')->where(['chat_identify'=>$chat_identify,'is_group'=>1])->whereFindInSet('at',$this->userInfo['user_id'])->order('msg_id desc')->select()->toArray();
+            $atList=Message::getAtList(['chat_identify'=>$chat_identify,'is_group'=>1],[],$this->userInfo['user_id']);
             $msgIda=array_column($atList,'msg_id');
             // 如果两次推送at数据的列表不一样，则推送
             if($isPush!=json_encode($msgIda)){
@@ -326,6 +326,29 @@ class Im extends BaseController
             $data = array_reverse($data);
         }
         return success('', $data, $list->total());
+    }
+
+    // 获取群聊@我的未读消息
+    public function getAtMsgList()
+    {
+        $param = $this->request->param();
+        $toContactId = $param['toContactId'] ?? '';
+        if (!$toContactId || strpos($toContactId, 'group-') !== 0) {
+            return warning(lang('system.parameterError'));
+        }
+        $group_id = (int)str_replace('group-', '', $toContactId);
+        if (!$group_id) {
+            return warning(lang('system.parameterError'));
+        }
+        if(!GroupUser::checkGroupUser($group_id,$this->userInfo['user_id'])){
+            return warning(lang('group.notCustom'));
+        }
+        $atList=Message::getAtMsgList($group_id,$this->userInfo['user_id']);
+        $data=$atList ? $this->recombileMsg($atList,false) : [];
+        return success('', [
+            'count'=>count($atList),
+            'list'=>$data
+        ]);
     }
 
     // 获取单条消息详情
@@ -927,7 +950,7 @@ class Im extends BaseController
     // 阅读@消息
     public function readAtMsg(){
         $param = $this->request->param();
-        $atList=Db::name('message')->where(['chat_identify'=>$param['toContactId'],'is_group'=>1])->whereFindInSet('at',$this->userInfo['user_id'])->order('msg_id desc')->select();
+        $atList=Message::getAtList(['chat_identify'=>$param['toContactId'],'is_group'=>1],[],$this->userInfo['user_id']);
         $atData=$this->recombileMsg($atList,false);
         Message::setAtRead($atData,$this->userInfo['user_id']);
         // $message=Message::where('msg_id',$param['msg_id'])->select();

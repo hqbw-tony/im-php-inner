@@ -17,6 +17,11 @@ class GroupUser extends BaseModel
       return self::where($map)->update($data);
    }
 
+   // 判断用户是否为有效群成员
+   public static function checkGroupUser($group_id,$user_id){
+      return self::where(['group_id'=>$group_id,'user_id'=>$user_id,'status'=>1])->find();
+   }
+
    // 获取团队成员列表
    public static function getGroupUser($map,$listRows,$pageSize=1){
       if($listRows){

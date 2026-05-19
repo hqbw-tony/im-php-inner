@@ -162,7 +162,7 @@ class User extends BaseModel
          $group = $group->toArray();
          $group_ids = arrayToString($group, 'group_id');
          $getGroupLastMsg = Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1], ['is_last', '=', 1]])->select();
-         $getAtMsg=Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1]])->whereFindInSet('at',$user_id)->select();
+         $getAtMsg=Message::getGroupAtMsg($group_ids,$user_id,$msgField);
 
          // halt($getAtMsg);
          foreach ($group as $k => $v) {
@@ -317,7 +317,7 @@ class User extends BaseModel
          $group = $group->toArray();
          $group_ids = arrayToString($group, 'group_id');
          $getGroupLastMsg = Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1], ['is_last', '=', 1]])->select();
-         $getAtMsg=Db::name('message')->field('to_user,count(msg_id) as count')->where([['to_user', 'in', $group_ids], ['is_group', '=', 1]])->whereFindInSet('at',$user_id)->group('to_user')->select();
+         $getAtMsg=Message::getGroupAtMsgCount($group_ids,$user_id);
          $getGroupLastMsg=self::matchListKey($getGroupLastMsg,'to_user');
          $getAtMsg=self::matchListKey($getAtMsg,'to_user');
          $groupList=self::recombileGroupList($group,$getGroupLastMsg,$getAtMsg,false,$user_id);

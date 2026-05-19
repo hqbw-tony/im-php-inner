@@ -35,6 +35,41 @@ class Message extends BaseModel
         return $list;
      }
 
+    // 查询@我的消息
+    public static function getAtList($map,$where,$user_id){
+        return Db::name('message')
+            ->where($map)
+            ->where($where)
+            ->whereFindInSet('at',$user_id)
+            ->order('msg_id desc')
+            ->select()
+            ->toArray();
+    }
+
+    // 查询群聊@我的未读消息
+    public static function getAtMsgList($group_id,$user_id){
+        return self::getAtList(['to_user'=>$group_id,'is_group'=>1],[],$user_id);
+    }
+
+    // 查询多个群聊@我的未读消息
+    public static function getGroupAtMsg($group_ids,$user_id,$field='*'){
+        return Db::name('message')
+            ->field($field)
+            ->where([['to_user','in',$group_ids],['is_group','=',1]])
+            ->whereFindInSet('at',$user_id)
+            ->select();
+    }
+
+    // 查询多个群聊@我的未读数量
+    public static function getGroupAtMsgCount($group_ids,$user_id){
+        return Db::name('message')
+            ->field('to_user,count(msg_id) as count')
+            ->where([['to_user','in',$group_ids],['is_group','=',1]])
+            ->whereFindInSet('at',$user_id)
+            ->group('to_user')
+            ->select();
+    }
+
          //    发送消息
     public function sendMessage($param,$globalConfig=false){
         $is_group = $param['is_group'] ?? 0;
