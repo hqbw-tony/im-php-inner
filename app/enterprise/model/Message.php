@@ -260,18 +260,79 @@ class Message extends BaseModel
         return true;
     }
 
-    // 将消息中的@用户加入到atListQueue中
+    // 将消息中的@用户交给队列近实时清理
     public static function setAtread($messages,$user_id){
-        foreach($messages as $k=>$v){
-            if(!isset($v['at'])){
+        $msgIds=self::getAtReadMsgIds($messages,$user_id);
+        if(!$msgIds){
+            return true;
+        }
+        self::cacheAtRead($msgIds,$user_id);
+        return queuePush(['action'=>'setAtRead','msg_ids'=>$msgIds,'user_id'=>$user_id]);
+    }
+
+    public static function clearAtRead($msgIds,$user_id){
+        if(!$msgIds || !$user_id){
+            return true;
+        }
+        if(!is_array($msgIds)){
+            $msgIds=[$msgIds];
+        }
+        $msgIds=array_values(array_unique(array_filter(array_map('intval',$msgIds))));
+        if(!$msgIds){
+            return true;
+        }
+        foreach($msgIds as $msgId){
+            $message=self::where('msg_id',$msgId)->value('at');
+            $atList=($message ?? null) ? explode(',',$message): [];
+            $newAtList=array_filter($atList,function($value) use ($user_id){
+                $value=trim((string)$value);
+                return $value !== '' && $value !== (string)$user_id;
+            });
+            if(count($newAtList)==count($atList)){
                 continue;
             }
-            if($v['at'] && in_array($user_id,$v['at'])){
-               $atListQueue=Cache::get("atListQueue");
-               $atListQueue[$v['msg_id']][]=$user_id;
-               Cache::set("atListQueue",$atListQueue);
+            self::where('msg_id',$msgId)->update(['at'=>implode(',',$newAtList)]);
+        }
+        return true;
+    }
+
+    public static function getAtReadMsgIds($messages,$user_id){
+        $msgIds=[];
+        if(!$messages || !$user_id || !is_array($messages)){
+            return $msgIds;
+        }
+        foreach($messages as $k=>$v){
+            if(!is_array($v) || !isset($v['at']) || !isset($v['msg_id'])){
+                continue;
+            }
+            if($v['at'] && self::isAtUser($v['at'],$user_id)){
+                $msgIds[]=(int)$v['msg_id'];
             }
         }
+        return array_values(array_unique($msgIds));
+    }
+
+    protected static function isAtUser($at,$user_id){
+        if(!is_array($at)){
+            $at=explode(',',(string)$at);
+        }
+        foreach($at as $value){
+            if(trim((string)$value) === (string)$user_id){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected static function cacheAtRead($msgIds,$user_id){
+        $atListQueue=Cache::get("atListQueue");
+        if(!$atListQueue || !is_array($atListQueue)){
+            $atListQueue=[];
+        }
+        foreach($msgIds as $msgId){
+            $atListQueue[$msgId][]=$user_id;
+        }
+        Cache::set("atListQueue",$atListQueue);
     }
 
 }

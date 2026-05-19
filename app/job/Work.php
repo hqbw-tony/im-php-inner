@@ -24,6 +24,7 @@ class Work
         'clearFiles', //清理文件
         'clearVoice', //清理音频
         'setIsRead', //设置消息为已读
+        'setAtRead', //设置@消息为已读
         'forwardMessage'  //转发消息
     ];
 
@@ -141,9 +142,10 @@ class Work
         $user_id=$data['user_id'];
         if ($is_group==1) {
             $toContactId = explode('-', $to_user)[1];
-            // 将@消息放到定时任务中逐步清理
+            // 在当前队列任务中直接清理@消息
             if($messages){
-                Message::setAtRead($messages,$user_id);
+                $msgIds=Message::getAtReadMsgIds($messages,$user_id);
+                Message::clearAtRead($msgIds,$user_id);
             }
             // 更新群里面我的所有未读消息为0
             GroupUser::editGroupUser(['user_id' => $user_id, 'group_id' => $toContactId], ['unread' => 0]);
@@ -155,6 +157,16 @@ class Work
             wsSendMsg($to_user, 'readAll', ['toContactId' => $user_id]);
         } 
         return true;
+    }
+
+    // 设置@消息已读
+    public function setAtRead($data){
+        $msgIds=$data['msg_ids'] ?? [];
+        $user_id=$data['user_id'] ?? 0;
+        if(!$user_id){
+            return false;
+        }
+        return Message::clearAtRead($msgIds,$user_id);
     }
     
     // 转发消息
