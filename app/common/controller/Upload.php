@@ -25,7 +25,7 @@ class Upload extends BaseController
     {
         parent::__construct(app());
         $this->disk=env('filesystem.driver','local');
-        $this->url=getDiskUrl().'/';
+        $this->url=getDiskUrl();
         
     }
 
@@ -125,7 +125,7 @@ class Upload extends BaseController
                 $videoInfo=$this->getVideoCover($filePath);
                 if($videoInfo){
                     $extends=$videoInfo['videoInfo'];
-                    $extends['poster']=$this->url.$videoInfo['src'];
+                    $extends['poster']=getFileUrl($videoInfo['src']);
                     $message['extends']=$extends;
                 }else{
                     $message['extends']['poster']=getMainHost().'/static/common/img/video.png';
@@ -198,7 +198,7 @@ class Upload extends BaseController
         try{
             $file=request()->file('file');
             $info=$this->upload($param,$file,'image/'.date('Y-m-d').'/');
-            $url=$this->url.$info['src'];
+            $url=getFileUrl($info['src']);
             return success(lang('file.uploadOk'),$url);
         } catch(\Exception $e) {
             return error($e->getMessage());
@@ -213,7 +213,7 @@ class Upload extends BaseController
             $uid=request()->userInfo['user_id'];
             $info=$this->upload($param,$file,'avatar/'.$uid.'/');
             User::where(['user_id'=>$uid])->update(['avatar'=>$info['src']]);
-            $url=$this->url.$info['src'];
+            $url=getFileUrl($info['src']);
             return success(lang('file.uploadOk'),$url);
         } catch(\Exception $e) {
             return error($e->getMessage());
@@ -292,7 +292,7 @@ class Upload extends BaseController
                 "file_id"  => $fileInfo->file_id,
             ];
             Emoji::create($emojiInfo);
-            return success('',$this->url.$object);
+            return success('',getFileUrl($object));
         } catch(\Exception $e) {
             return $e->getMessage().$e->getLine();
         }
