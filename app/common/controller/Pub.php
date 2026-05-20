@@ -168,7 +168,8 @@ class Pub
             $systemInfo=Config::getSystemInfo();
             $registerInterval=$systemInfo['sysInfo']['registerInterval'] ? : 0;
             if(Cache::has('register_'.md5($ip)) && $registerInterval>0){
-                return warning(lang('user.registerLimit',['time'=>floor($registerInterval/60)]));
+                $time=$registerInterval>=60 ? ceil($registerInterval/60).lang('user.minute') : $registerInterval.lang('user.second');
+                return warning(lang('user.registerLimit',['time'=>$time]));
             }
             // 判断系统是否开启注册
             if($systemInfo['sysInfo']['regtype']==2){

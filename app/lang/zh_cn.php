@@ -97,7 +97,9 @@ return [
         'expired' => '登陆已过期 请重新登陆',
         'notOwn' =>"客服不能为他本人",
         'loginLimit' =>"您的密码错误次数过多，请稍后再试！",
-        'registerLimit'=>"请{:time}分钟后再注册！",
+        'registerLimit'=>"请{:time}后再注册！",
+        'second'=>"秒",
+        'minute'=>"分钟",
     ],
     'im'=>[
         'forbidChat'=>"目前禁止用户私聊！",

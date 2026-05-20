@@ -98,7 +98,9 @@ return [
         'expired' => 'Login has expired. Please log in again',
         'notOwn' =>"Customer service can't be for him",
         'loginLimit' =>"Your password has been wrong too many times. Please try again later! ",
-        'registerLimit'=>"Please register again in {:time} minutes"
+        'registerLimit'=>"Please register again in {:time}",
+        'second'=>" seconds",
+        'minute'=>" minutes"
     ],  
     'im' => [  
         'forbidChat' => "Private chatting is currently prohibited!",  
