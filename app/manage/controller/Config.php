@@ -52,19 +52,11 @@ class Config extends BaseController
         if($name=='fileUpload'){
             updateEnv('driver',$value['disk']);
             updateEnv('own',$value['preview']);
-            foreach ($value['aliyun'] as $k=>$v){
-                if($v){
-                    updateEnv('aliyun_'.$k,$v);
-                }
-            }
-            foreach ($value['qiniu'] as $k=>$v){
-                if($v){
-                    updateEnv('qiniu_'.$k,$v);
-                }
-            }
-            foreach ($value['qcloud'] as $k=>$v){
-                if($v){
-                    updateEnv('qcloud_'.$k,$v);
+            foreach (['aliyun','qiniu','qcloud','r2'] as $disk){
+                foreach (($value[$disk] ?? []) as $k=>$v){
+                    if($v){
+                        updateEnv($disk.'_'.$k,$v);
+                    }
                 }
             }
         }else{

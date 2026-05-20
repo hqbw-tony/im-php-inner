@@ -37,6 +37,16 @@ return [
             'cdn'             => env('filesystem.qcloud_cdn',''),
             'scheme'          => 'https',
             'read_from_cdn'   => false,
+        ],
+        'r2' => [
+            'type'         => 'r2',
+            'accessKey'    => env('filesystem.r2_accessKey',''),
+            'secretKey'    => env('filesystem.r2_secretKey',''),
+            'bucket'       => env('filesystem.r2_bucket',''),
+            'endpoint'     => env('filesystem.r2_endpoint',''),
+            'region'       => env('filesystem.r2_region','auto') ?: 'auto',
+            'url'          => env('filesystem.r2_url',''),
+            'usePathStyle' => env('filesystem.r2_usePathStyle', true),
         ]
     ],
 ];

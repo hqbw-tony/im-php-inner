@@ -768,6 +768,8 @@ function getDiskUrl(){
         $url=env('filesystem.qiniu_url','');
     }elseif($disk=='qcloud'){
         $url=env('filesystem.qcloud_cdn','');
+    }elseif($disk=='r2'){
+        $url=env('filesystem.r2_url','');
     }
     $url=rtrim($url,'/');
     return $url;

@@ -293,6 +293,13 @@ qcloud_secretId=false
 qcloud_secretKey=false
 qcloud_bucket=false
 qcloud_cdn=false
+r2_accessKey=false
+r2_secretKey=false
+r2_bucket=false
+r2_endpoint=false
+r2_region=auto
+r2_url=false
+r2_usePathStyle=true
 INFO;
     
             @file_put_contents( root_path().'.env', $code);
