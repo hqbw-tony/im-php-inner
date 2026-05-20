@@ -541,7 +541,7 @@ function sortArray($arrays, $sort_key, $sort_order = SORT_ASC, $sort_type = SORT
 }
 
 //gateway向web页面推送消息
-function wsSendMsg($user, $type,  $data, $isGroup=0)
+function wsSendMsg($user, $type,  $data, $isGroup=0, $isPush=true)
 {
     $message = json_encode([
         'type' => $type,
@@ -557,7 +557,7 @@ function wsSendMsg($user, $type,  $data, $isGroup=0)
                 $send = 'sendToUid';
                 // 如果是单聊和语音通话需要使用unipush推送
                 $event=$data['extends']['event'] ?? '';
-                if(in_array($type,['simple']) || ($event=='calling' && $type=='webrtc')){
+                if($isPush && (in_array($type,['simple']) || ($event=='calling' && $type=='webrtc'))){
                     unipush($user,$data);
                 }
             } else {

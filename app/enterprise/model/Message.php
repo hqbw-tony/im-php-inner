@@ -236,13 +236,10 @@ class Message extends BaseModel
         $sendData['to_user']=$toContactId;
         $sendData['role']=$manage[self::$uid] ?? 3;
         $sendData['sendTime']=(int)$sendData['sendTime'];
-        //这里单聊中发送对方的消息，对方是接受状态，自己是对方的联系人，要把发送对象设置为发送者的ID。
         if($is_group){
             $sendData['toContactId']=$param['toContactId'];
             // 将团队所有成员的未读状态+1
             GroupUser::editGroupUser([['group_id','=',$toContactId],['user_id','<>',$uid]],['unread'=>Db::raw('unread+1')]);
-        }else{
-            $sendData['toContactId']=$uid;
         }
         $sendData['fromUser']['id']=(int)$sendData['fromUser']['id'];
         $sendData['fileSize']=$fileSzie;
@@ -258,22 +255,25 @@ class Message extends BaseModel
             $sendData['extUrl']=getExtUrl($sendData['content']);
             $sendData['download']= $sendData['file_id'] ? getMainHost().'/filedown/'.encryptIds($sendData['file_id']) : '';
         }
-        $forContactId=$sendData['toContactId'];
-        if($is_sys){
-            $forContactId=$toContactId;
-        }
-        if($is_group==0){
-            $toContactId=[$toContactId,$param['user_id']];
-        }
         $sendData['toUser']=$param['toContactId'];
         $user=new User();
         // 将聊天窗口的联系人信息带上，方便临时会话
         
-        $sendData['contactInfo']=$user->setContact($forContactId,$is_group,$sendData['type'],$sendData['content']);
-        // 向发送方发送消息
-        wsSendMsg($toContactId,$type,$sendData,$is_group);
-        $sendData['toContactId']=$param['toContactId'];
-        return $sendData;
+        if($is_group){
+            $sendData['contactInfo']=$user->setContact($sendData['toContactId'],$is_group,$sendData['type'],$sendData['content']);
+            wsSendMsg($toContactId,$type,$sendData,$is_group);
+            return $sendData;
+        }
+        // 单聊需要按接收方和发送方自己的其他端分别组装 contactInfo，避免重建会话时头像视角错误。
+        $receiverData=$sendData;
+        $receiverData['toContactId']=$uid;
+        $receiverData['contactInfo']=$user->setContact($uid,0,$receiverData['type'],$receiverData['content']);
+        wsSendMsg($toContactId,$type,$receiverData,0);
+        $senderData=$sendData;
+        $senderData['toContactId']=$param['toContactId'];
+        $senderData['contactInfo']=$user->setContact($param['toContactId'],0,$senderData['type'],$senderData['content']);
+        wsSendMsg($uid,$type,$senderData,0,false);
+        return $senderData;
 }
 
     // 群禁言
