@@ -246,6 +246,7 @@ class Group extends BaseController
             }
             $groupUser=new GroupUser();
             $groupUser->saveAll($data);
+            $createGroupContent=lang('group.add',['username'=>$this->userInfo['realname']]);
             $groupInfo=[
                'displayName'=>$create['name'],
                'owner_id'=>$create['owner_id'],
@@ -254,7 +255,7 @@ class Group extends BaseController
                'id'=>'group-'.$group_id,
                'avatar'=>avatarUrl('',$create['name'],$group_id,120,1),
                'is_group'=>1,
-               'lastContent'=>lang('group.add',['username'=>$this->userInfo['realname']]),
+               'lastContent'=>$createGroupContent,
                'lastSendTime'=>time()*1000,
                'index'=>"[2]".lang('group.name'),
                'is_notice'=>1,
@@ -264,7 +265,7 @@ class Group extends BaseController
             Message::create([
                'from_user'=>$uid,
                'to_user'=>$group_id,
-               'content'=>str_encipher(lang('group.add',['username'=>''])),
+               'content'=>str_encipher($createGroupContent),
                'type'=>'event',
                'is_group'=>1,
                'is_read'=>1,
