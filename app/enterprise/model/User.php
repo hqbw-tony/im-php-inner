@@ -316,11 +316,12 @@ class User extends BaseModel
       if ($group) {
          $group = $group->toArray();
          $group_ids = arrayToString($group, 'group_id');
-         $getGroupLastMsg = Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1], ['is_last', '=', 1]])->select();
+         $getGroupLastMsg = Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1], ['is_last', '=', 1]])->select()->toArray();
+         $getGroupLastMsgUser=$getGroupLastMsg ? self::matchUser($getGroupLastMsg,true,'from_user',120) : [];
          $getAtMsg=Message::getGroupAtMsgCount($group_ids,$user_id);
          $getGroupLastMsg=self::matchListKey($getGroupLastMsg,'to_user');
          $getAtMsg=self::matchListKey($getAtMsg,'to_user');
-         $groupList=self::recombileGroupList($group,$getGroupLastMsg,$getAtMsg,false,$user_id);
+         $groupList=self::recombileGroupList($group,$getGroupLastMsg,$getAtMsg,false,$user_id,$getGroupLastMsgUser);
       }
       try{
          Gateway::$registerAddress = config('gateway.registerAddress');
@@ -387,7 +388,7 @@ class User extends BaseModel
    }
 
    //重新组成标准的群聊数据
-   protected static function recombileGroupList($group,$getGroupLastMsg=[],$getAtMsg=[],$is_all=false,$user_id=0){
+   protected static function recombileGroupList($group,$getGroupLastMsg=[],$getAtMsg=[],$is_all=false,$user_id=0,$getGroupLastMsgUser=[]){
       $groupList=[];
       foreach ($group as $k => $v) {
          $val=$v;
@@ -400,10 +401,15 @@ class User extends BaseModel
             }
          }
          $groupVal=$getGroupLastMsg[$v['group_id']] ?? [];
+         $val['lastIsSelf'] = 0;
+         $val['lastFromUser'] = [];
          if($groupVal){
             $val['type'] =$groupVal['type'];
             $val['lastContent'] = str_encipher($groupVal['lastContent'],false);
             $val['lastSendTime'] = $groupVal['lastSendTime'] * 1000;
+            $fromUserId = (int)($groupVal['from_user'] ?? 0);
+            $val['lastIsSelf'] = $fromUserId && $fromUserId == $user_id ? 1 : 0;
+            $val['lastFromUser'] = $getGroupLastMsgUser[$fromUserId] ?? [];
          }else{
             if(!$is_all){
                continue;
