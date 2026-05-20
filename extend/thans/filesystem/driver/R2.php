@@ -21,14 +21,15 @@ class R2 extends Driver
         }
 
         $client = new S3Client([
-            'version'                 => 'latest',
-            'region'                  => $this->config['region'] ?: 'auto',
-            'endpoint'                => rtrim($this->config['endpoint'], '/'),
-            'credentials'             => [
+            'version'                          => 'latest',
+            'region'                           => $this->config['region'] ?: 'auto',
+            'endpoint'                         => rtrim($this->config['endpoint'], '/'),
+            'suppress_php_deprecation_warning' => true,
+            'credentials'                      => [
                 'key'    => $this->config['accessKey'],
                 'secret' => $this->config['secretKey'],
             ],
-            'use_path_style_endpoint' => $usePathStyle,
+            'use_path_style_endpoint'          => $usePathStyle,
         ]);
 
         return new R2Adapter($client, $this->config['bucket'], $this->config['prefix'] ?? '');
