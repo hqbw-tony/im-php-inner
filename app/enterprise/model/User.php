@@ -444,7 +444,9 @@ class User extends BaseModel
 
    // 重新组成标准的好友数据
    protected static function recombineUserList($list_chart,$isRegion,$friendList,$unread=[],$lasMsgList=[],$onlineList=[],$user_id=0){
-      $isRegion=$config['sysInfo']['ipregion'] ?? 0;
+      if(is_object($list_chart) && method_exists($list_chart,'toArray')){
+         $list_chart=$list_chart->toArray();
+      }
       if($list_chart){
          foreach ($list_chart as $k => $v) {
             if($user_id){
