@@ -49,7 +49,7 @@ class User extends BaseModel
       return self::$uid;
    }
 
-   protected static function getFriendDisplayName($friend,$realname)
+   public static function getFriendDisplayName($friend,$realname)
    {
       $nickname=trim((string)($friend['nickname'] ?? ''));
       return $nickname !== '' ? $nickname : $realname;

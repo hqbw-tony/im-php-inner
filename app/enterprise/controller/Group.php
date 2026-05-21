@@ -3,7 +3,7 @@
 namespace app\enterprise\controller;
 
 use app\BaseController;
-use app\enterprise\model\{User,Group as GroupModel,GroupUser,Message};
+use app\enterprise\model\{User,Group as GroupModel,GroupUser,Message,Friend as FriendModel};
 use think\Exception;
 use think\facade\Db;
 use app\common\controller\Upload;
@@ -48,10 +48,12 @@ class Group extends BaseController
                ->toArray();
             $count=count($data);
          }
+         $friendList=FriendModel::getFriend(['create_user'=>$this->uid,'status'=>1]);
          foreach($data as $k=>$v){
             $user=$v['userInfo'];
+            $friend=$friendList[$user['user_id']] ?? [];
             $data[$k]['userInfo']['id']=$user['user_id'];
-            $data[$k]['userInfo']['displayName']=$user['realname'];
+            $data[$k]['userInfo']['displayName']=User::getFriendDisplayName($friend,$user['realname']);
             $data[$k]['userInfo']['avatar']=avatarUrl($user['avatar'], $user['realname'], $user['user_id']);
             $data[$k]['realname']=$user['realname'];
             $data[$k]['name_py']=$user['name_py'];
