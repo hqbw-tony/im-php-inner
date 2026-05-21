@@ -250,28 +250,36 @@ class Im extends BaseController
     {
         $param = $this->request->param();
         $is_group = isset($param['is_group']) ? $param['is_group'] : 0;
+        $toContactId = (string)($param['toContactId'] ?? '');
+        if($toContactId===''){
+            return success('', [], 0);
+        }
+        if(strpos($toContactId,'group-')===0){
+            $is_group = 1;
+        }
         // 如果toContactId是数字，绝对是单聊
-        $is_group = is_numeric($param['toContactId']) ? 0 : $is_group;
-        // 设置当前聊天消息为已读
-        $chat_identify = $this->setIsRead($is_group, $param['toContactId']);
+        $is_group = is_numeric($toContactId) ? 0 : $is_group;
         $type = isset($param['type']) ? $param['type'] : '';
         $is_at = isset($param['is_at']) ? $param['is_at'] : '';
-        $map = ['chat_identify' => $chat_identify, 'status' => 1];
         $where = [];
-        if ($type && $type != "all") {
-            $map['type'] = $type;
-        } else {
-            if (isset($param['type'])) {
-                $where[] = ['type', '<>', 'event'];
-            }
-        }
         $groupManage=[];
         // 群聊查询入群时间以后的消息
         if($is_group==1){
-            $group_id = explode('-', $param['toContactId'])[1];
+            $group_id = explode('-', $toContactId)[1] ?? '';
+            if(!$group_id){
+                return warning(lang('system.parameterError'));
+            }
             $group=Group::where(['group_id'=> $group_id])->find();
+            if(!$group){
+                return warning(lang('group.exist'), [
+                    'reason'=>'group_dismissed',
+                    'status'=>'group_dismissed',
+                    'toContactId'=>$toContactId,
+                    'group_id'=>$group_id,
+                ]);
+            }
             $groupManage=GroupUser::getGroupManage($group_id);
-            if($group && $group['setting']){
+            if($group['setting']){
                 $groupSetting=json_decode($group['setting'],true);
                 $history=$groupSetting['history'] ?? false;
                 // 如果开启了历史记录才可以查看所有记录，否者根据进群时间查询记录
@@ -279,6 +287,16 @@ class Im extends BaseController
                     $createTime=GroupUser::where(['group_id'=> $group_id,'user_id'=>$this->userInfo['user_id']])->value('create_time');
                     $where[] = ['create_time', '>=', $createTime ? : 0];
                 }
+            }
+        }
+        // 设置当前聊天消息为已读
+        $chat_identify = $this->setIsRead($is_group, $toContactId);
+        $map = ['chat_identify' => $chat_identify, 'status' => 1];
+        if ($type && $type != "all") {
+            $map['type'] = $type;
+        } else {
+            if (isset($param['type'])) {
+                $where[] = ['type', '<>', 'event'];
             }
         }
         $keywords = isset($param['keywords']) ? $param['keywords'] : '';
@@ -296,8 +314,8 @@ class Im extends BaseController
                 return success('', [], 0);
             }
         }
-        $listRows = $param['limit'] ?: 20;
-        $pageSize = $param['page'] ?: 1;
+        $listRows = ($param['limit'] ?? 20) ?: 20;
+        $pageSize = ($param['page'] ?? 1) ?: 1;
         $last_id = $param['last_id'] ?? 0;
         if($last_id){
             $where[]=['msg_id','<',$last_id];
@@ -306,7 +324,7 @@ class Im extends BaseController
         $list = Message::getList($map, $where, 'msg_id desc', $listRows, $pageSize);
         $data = $this->recombileMsg($list,true,$groupManage);
         // 如果是群聊并且是第一页消息，需要推送@数据给用户
-        if($param['is_group']==1 && $param['page']==1){
+        if($is_group==1 && $pageSize==1){
             $isPush=Cache::get('atMsgPush'.$chat_identify) ?? '';
             $atList=Message::getAtList(['chat_identify'=>$chat_identify,'is_group'=>1],[],$this->userInfo['user_id']);
             $msgIda=array_column($atList,'msg_id');
@@ -316,7 +334,7 @@ class Im extends BaseController
                 wsSendMsg($this->userInfo['user_id'],'atMsgList',[
                     'list'=>$atData,
                     'count'=>count($atData),
-                    'toContactId'=>$param['toContactId']
+                    'toContactId'=>$toContactId
                 ]);
                 Cache::set('atMsgPush'.$chat_identify,json_encode($msgIda),60);
             }
