@@ -21,6 +21,18 @@ class Message extends BaseModel
         return $this->errorData;
     }
 
+    public static function getSearchContent($content,$type='',$fileName='')
+    {
+        if(in_array($type,self::$fileType)){
+            return trim((string)$fileName);
+        }
+        if(is_array($content)){
+            $content=json_encode($content,JSON_UNESCAPED_UNICODE);
+        }
+        $content=html_entity_decode(strip_tags((string)$content),ENT_QUOTES,'UTF-8');
+        return trim($content);
+    }
+
     // 添加聊天记录
     public static function addData($data){
        return Db::name('message')->insert($data);
@@ -226,6 +238,7 @@ class Message extends BaseModel
             'to_user'=>$toContactId,
             'id'=>$param['id'],
             'content'=>str_encipher($param['content'],true),
+            'search_content'=>self::getSearchContent($param['content'],$param['type'],$fileName),
             'chat_identify'=>$chat_identify,
             'create_time'=>time(),
             'type'=>$param['type'],

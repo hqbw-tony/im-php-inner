@@ -266,6 +266,7 @@ class Group extends BaseController
                'from_user'=>$uid,
                'to_user'=>$group_id,
                'content'=>str_encipher($createGroupContent),
+               'search_content'=>Message::getSearchContent($createGroupContent,'event'),
                'type'=>'event',
                'is_group'=>1,
                'is_read'=>1,

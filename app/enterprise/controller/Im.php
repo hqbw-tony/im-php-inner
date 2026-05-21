@@ -292,16 +292,16 @@ class Im extends BaseController
         // 设置当前聊天消息为已读
         $chat_identify = $this->setIsRead($is_group, $toContactId);
         $map = ['chat_identify' => $chat_identify, 'status' => 1];
+        $keywords = isset($param['keywords']) ? $param['keywords'] : '';
         if ($type && $type != "all") {
             $map['type'] = $type;
         } else {
-            if (isset($param['type'])) {
+            if (isset($param['type']) && !$keywords) {
                 $where[] = ['type', '<>', 'event'];
             }
         }
-        $keywords = isset($param['keywords']) ? $param['keywords'] : '';
         if ($keywords && in_array($type, ['text', 'all'])) {
-            $where[] = ['content', 'like', '%' . $keywords . '%'];
+            $where[] = ['search_content', 'like', '%' . $keywords . '%'];
         }
         // 如果是查询@数据
         if($is_at){
@@ -594,6 +594,7 @@ class Im extends BaseController
                 }
             }
             $message->content = str_encipher($text);
+            $message->search_content = Message::getSearchContent($text,'event');
             $message->type = 'event';
             $message->is_undo = 1;
             //@的数据清空

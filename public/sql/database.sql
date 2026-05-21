@@ -131,6 +131,7 @@ CREATE TABLE `yu_message` (
   `from_user` int(11) NOT NULL DEFAULT '0' COMMENT '发送者',
   `to_user` int(11) NOT NULL DEFAULT '0' COMMENT '接受收者',
   `content` text COLLATE utf8mb4_unicode_ci COMMENT '消息内容，如果为文件或图片就是url',
+  `search_content` text COLLATE utf8mb4_unicode_ci COMMENT '搜索内容，仅用于检索，不返回给客户端',
   `chat_identify` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '标识 ：a与b聊天，b与a聊天。记录 a-b',
   `type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'text' COMMENT '消息类型：text、file、image...',
   `is_group` tinyint(1) NOT NULL DEFAULT '0' COMMENT '群聊消息',
