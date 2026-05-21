@@ -49,6 +49,12 @@ class User extends BaseModel
       return self::$uid;
    }
 
+   protected static function getFriendDisplayName($friend,$realname)
+   {
+      $nickname=trim((string)($friend['nickname'] ?? ''));
+      return $nickname !== '' ? $nickname : $realname;
+   }
+
    //查询用户信息
    public static function getUserInfo($map=[])
    {
@@ -216,7 +222,7 @@ class User extends BaseModel
          // 是否有消息通知或者置顶聊天
          $friend = isset($friendList[$v['user_id']]) ? $friendList[$v['user_id']] : [];
          $list_chart[$k]['id'] = $v['user_id'];
-         $list_chart[$k]['displayName'] = ($friend['nickname'] ?? '') ? : $v['realname'];
+         $list_chart[$k]['displayName'] = self::getFriendDisplayName($friend,$v['realname']);
          $list_chart[$k]['name_py'] = $v['name_py'];
          $list_chart[$k]['avatar'] = avatarUrl($v['avatar'], $v['realname'], $v['user_id'], 120);
          $list_chart[$k]['lastContent'] = '';
@@ -393,12 +399,8 @@ class User extends BaseModel
       foreach ($group as $k => $v) {
          $val=$v;
          $group_id = 'group-' . $v['group_id'];
-         if($user_id){
-            $delChat=ChatDelog::getCache($user_id);
-            $delChat = $delChat['groupList'] ?? [];
-            if(in_array($group_id,$delChat)){
-               continue;
-            }
+         if($user_id && ChatDelog::isDeleted($user_id,$group_id,1)){
+            continue;
          }
          $groupVal=$getGroupLastMsg[$v['group_id']] ?? [];
          $val['lastIsSelf'] = 0;
@@ -447,16 +449,15 @@ class User extends BaseModel
          foreach ($list_chart as $k => $v) {
             if($user_id){
                // 过滤已删除的聊天
-               $delChat=ChatDelog::getCache($user_id);
-               $delChat = $delChat['userList'] ?? [];
-               if(in_array($v['user_id'],$delChat)){
+               if(ChatDelog::isDeleted($user_id,$v['user_id'],0)){
+                  unset($list_chart[$k]);
                   continue;
                }
             }
             // 是否有消息通知或者置顶聊天
             $friend = $friendList[$v['user_id']] ?? [];
             $list_chart[$k]['id'] = $v['user_id'];
-            $list_chart[$k]['displayName'] = ($friend['nickname'] ?? '') ? : $v['realname'];
+            $list_chart[$k]['displayName'] = self::getFriendDisplayName($friend,$v['realname']);
             $list_chart[$k]['name_py'] = $v['name_py'];
             $list_chart[$k]['avatar'] = avatarUrl($v['avatar'], $v['realname'], $v['user_id'], 120);
             $list_chart[$k]['lastContent'] = '';
@@ -492,7 +493,7 @@ class User extends BaseModel
             }
          }
       }
-      return $list_chart;
+      return $list_chart ? array_values($list_chart) : [];
    }
 
    // 获取机器人聊天消息
@@ -588,7 +589,7 @@ class User extends BaseModel
          if($friend){
             foreach($friend as $key=>$val){
                if($val['friend_user_id']==$v['user_id']){
-                  $v['realname']=$val['nickname'] ? : $v['displayName'];
+                  $v['realname']=self::getFriendDisplayName($val,$v['displayName']);
                   break;
                }
             }
@@ -687,7 +688,7 @@ class User extends BaseModel
          $user->avatar=avatarUrl($user->avatar,$user->realname,$user->user_id,120);
          // 查询好友关系
          $friend= self::$userInfo ? Friend::where(['friend_user_id'=>$id,'create_user'=>self::$userInfo['user_id']])->find() : [];
-         $data['displayName'] = ($friend['nickname'] ?? '') ? : $user['realname'];
+         $data['displayName'] = self::getFriendDisplayName($friend,$user['realname']);
          $data['avatar'] = avatarUrl($user['avatar'], $user['realname'], $user['user_id'], 120);
          $data['location'] =$user['last_login_ip'] ? implode(" ", \Ip::find($user['last_login_ip'])) : "未知";
          $data['name_py'] = $user['name_py'];

@@ -722,14 +722,24 @@ class Im extends BaseController
     {
         $param = $this->request->param();
         $user_id = $this->userInfo['user_id'];
-        $is_group = $param['is_group'] ?: 0;
-        $id = $param['id'];
+        $is_group = isset($param['is_group']) ? (int)$param['is_group'] : 0;
+        $id = $param['id'] ?? ($param['toContactId'] ?? '');
+        if(is_string($id) && strpos($id,'group-')===0){
+            $is_group=1;
+        }
+        $id=ChatDelog::normalizeToUser($id,$is_group);
+        if($id===''){
+            return warning(lang('system.parameterError'));
+        }
         $data=[
             'user_id'=>$user_id,
             'is_group'=>$is_group,
             'to_user'=>$id
         ];
-        ChatDelog::create($data);
+        $chatDelog=ChatDelog::where($data)->find();
+        if(!$chatDelog){
+            ChatDelog::create($data);
+        }
         ChatDelog::updateCache($user_id);
         return success('');
     }

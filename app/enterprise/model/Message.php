@@ -203,10 +203,8 @@ class Message extends BaseModel
         $toContactId=$param['toContactId'];
         $manage=[];
         // 重新建立会话，更新会话删除记录
-        $isDelChat=ChatDelog::where(['user_id'=>$uid,'to_user'=>$toContactId])->find();
-        if($isDelChat){
-            ChatDelog::where(['user_id'=>$uid,'to_user'=>$toContactId])->delete();
-            ChatDelog::updateCache($uid);
+        if(ChatDelog::isDeleted($uid,$toContactId,$is_group)){
+            ChatDelog::deleteContact($uid,$toContactId,$is_group);
         }
         if($is_group==1){
             $group_id = explode('-', $param['toContactId'])[1] ?? '';
