@@ -69,7 +69,7 @@ class Im extends BaseController
         if ($data) {
             return success('', $data);
         } else {
-            return warning($message->getError());
+            return warning($message->getError(), $message->getErrorData());
         }
     }
 
@@ -718,20 +718,28 @@ class Im extends BaseController
     // 向用户发送消息
     public function sendToMsg(){
         $param=$this->request->param();
-        $toContactId=$param['toContactId'];
-        
-        $type=$param['type'];
-        $status=$param['status'];
-        $event=$param['event'] ?? 'calling';
+        $event=$param['event'] ?? '';
+        $allowEvents=['calling','acceptRtc','hangup','iceCandidate','offer','answer','busy'];
+        if(!$event || !in_array($event,$allowEvents,true)){
+            return error('Invalid call event');
+        }
+        if($event=='calling' && (!($param['toContactId'] ?? '') || !isset($param['type']) || ($param['type'] === '') || !($param['id'] ?? ''))){
+            return error('Invalid call event');
+        }
+        $toContactId=$param['toContactId'] ?? '';
+        $type=$param['type'] ?? '';
         if($event=='calling'){
             $status=3;
+            $code=($param['code'] ?? '') ?: 901;
+        }else{
+            $status=$param['status'] ?? '';
+            $code=$param['code'] ?? '';
         }
         $sdp=$param['sdp'] ?? '';
         $iceCandidate=$param['iceCandidate'] ?? '';
         $callTime=$param['callTime'] ?? '';
         $msg_id=$param['msg_id'] ?? '';
         $id=$param['id'] ?? '';
-        $code=($param['code'] ?? '') ?: 901;
         // 如果该用户不在线，则发送忙线
         Gateway::$registerAddress = config('gateway.registerAddress');
         if(!Gateway::isUidOnline($toContactId)){

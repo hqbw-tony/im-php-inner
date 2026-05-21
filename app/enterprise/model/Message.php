@@ -13,7 +13,13 @@ class Message extends BaseModel
     protected $pk="msg_id";
     protected $json      = ["extends"];
     protected $jsonAssoc = true;
+    protected $errorData = '';
     protected static $fileType=['file','image','video','voice','emoji'];
+
+    public function getErrorData()
+    {
+        return $this->errorData;
+    }
 
     // 添加聊天记录
     public static function addData($data){
@@ -143,7 +149,18 @@ class Message extends BaseModel
                     $this->error=lang('system.parameterError');
                     return false;
                 }
-                if(!self::nospeak($group_id,$uid)){
+                $group=Group::find($group_id);
+                if(!$group){
+                    $this->error=lang('group.exist');
+                    $this->errorData=[
+                        'reason'=>'group_dismissed',
+                        'status'=>'group_dismissed',
+                        'toContactId'=>$param['toContactId'],
+                        'group_id'=>$group_id,
+                    ];
+                    return false;
+                }
+                if(!self::nospeak($group_id,$uid,$group)){
                     if($isForward){
                         return false;
                     }
@@ -277,8 +294,11 @@ class Message extends BaseModel
 }
 
     // 群禁言
-    public static function nospeak($group_id,$user_id){
-        $group=Group::find($group_id);
+    public static function nospeak($group_id,$user_id,$group=null){
+        $group=$group ?: Group::find($group_id);
+        if(!$group){
+            return false;
+        }
         if($group->owner_id==$user_id){
             return true;
         }
