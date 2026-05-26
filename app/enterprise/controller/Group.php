@@ -101,8 +101,7 @@ class Group extends BaseController
    {
       $param = $this->request->param();
       $group_id = explode('-', $param['id'])[1];
-      $role=GroupUser::where(['group_id'=>$group_id,'user_id'=>$this->userInfo['user_id']])->value('role');
-      if($role>2){
+      if(!GroupUser::canEditGroupInfo($group_id,$this->userInfo['user_id'])){
          return warning(lang('group.notAuth'));
       }
       GroupModel::where(['group_id' => $group_id])->update(['name' => $param['displayName'],'name_py'=>pinyin_sentence($param['displayName'])]);
@@ -421,8 +420,7 @@ class Group extends BaseController
          if($param['notice']==''){
             return warning(lang('system.notNull'));
          }
-         $role=GroupUser::where(['group_id'=>$group_id,'user_id'=>$uid])->value('role');
-         if($role>2){
+         if(!GroupUser::canEditGroupInfo($group_id,$uid)){
             return warning(lang('system.notAuth'));
          }
          GroupModel::update(['notice'=>$param['notice']],['group_id'=>$group_id]);

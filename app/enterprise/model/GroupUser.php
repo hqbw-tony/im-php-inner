@@ -22,6 +22,21 @@ class GroupUser extends BaseModel
       return self::where(['group_id'=>$group_id,'user_id'=>$user_id,'status'=>1])->find();
    }
 
+   // 判断用户是否可以编辑群名称、群公告等基础资料
+   public static function canEditGroupInfo($group_id,$user_id){
+      $group=Group::where(['group_id'=>$group_id])->find();
+      if(!$group){
+         return false;
+      }
+      $groupUser=self::where(['group_id'=>$group_id,'user_id'=>$user_id,'status'=>1])->find();
+      if(!$groupUser){
+         return false;
+      }
+      $setting=$group['setting'] ? json_decode($group['setting'],true) : [];
+      $manage=$setting['manage'] ?? 0;
+      return (int)$manage==0 || $groupUser['role']<=2;
+   }
+
    // 获取团队成员列表
    public static function getGroupUser($map,$listRows,$pageSize=1){
       if($listRows){
