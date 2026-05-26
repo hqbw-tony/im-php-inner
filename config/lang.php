@@ -22,11 +22,19 @@ return [
         'en-us'    => [
             app()->getBasePath() . 'lang/en_us.php',
         ],
+        'ja'    => [
+            app()->getBasePath() . 'lang/ja.php',
+        ],
+        'ko'    => [
+            app()->getBasePath() . 'lang/ko.php',
+        ],
     ],
     // Accept-Language转义为对应语言包名称
     'accept_language' => [
         'zh-Hans' => 'zh-cn',
         'en' => 'en-us',
+        'ja' => 'ja',
+        'ko' => 'ko',
     ],
     // 是否支持语言分组
     'allow_group'     => true,
