@@ -134,6 +134,7 @@ class Group extends BaseController
          return warning(lang('group.inviteLimit',['limit'=>20]));
       }
       try{
+         $joinedUserIds=[];
          foreach($user_ids as $k=>$v){
             $item=[
                'group_id'=>$group_id,
@@ -145,10 +146,40 @@ class Group extends BaseController
             // 查询是否有人
             if(!$hasUser){
                GroupUser::create($item);
+               $joinedUserIds[]=$v;
             }
             // 如果是黑名单用户，则更新状态为正常,只有群主才有重新拉回黑名单的人权限
             if($hasUser && $hasUser['status']==3 && $groupInfo['owner_id']==$uid){
                GroupUser::where(['group_id'=>$group_id,'user_id'=>$v])->update(['status'=>1,'invite_id'=>$uid]);
+               $joinedUserIds[]=$v;
+            }
+         }
+         $joinedUserIds=array_values(array_unique($joinedUserIds));
+         if($joinedUserIds){
+            $joinUserMap=User::where([['user_id','in',$joinedUserIds]])->column('realname','user_id');
+            $joinNames=[];
+            foreach($joinedUserIds as $joinUserId){
+               if(!empty($joinUserMap[$joinUserId])){
+                  $joinNames[]=$joinUserMap[$joinUserId];
+               }
+            }
+            if($joinNames){
+               $fromUser=$this->userInfo;
+               $fromUser['id']=$uid;
+               $fromUser['avatar']=avatarUrl($fromUser['avatar'],$fromUser['realname'],$uid);
+               $msg=[
+                  'id'=>Str::getUuid(),
+                  'user_id'=>$uid,
+                  'content'=>lang('group.join',['username'=>implode('、',$joinNames)]),
+                  'toContactId'=>'group-'.$group_id,
+                  'sendTime'=>time()*1000,
+                  'type'=>'event',
+                  'is_group'=>1,
+                  'status'=>'succeed',
+                  'fromUser'=>$fromUser,
+                  'at'=>[],
+               ];
+               Message::sendMsg($msg,1);
             }
          }
          // 给新成员添加新群聊信息

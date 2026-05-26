@@ -6,8 +6,9 @@
  */
 namespace app\manage\controller;
 use app\BaseController;
-use app\enterprise\model\{User as UserModel,GroupUser,Group as GroupModel};
+use app\enterprise\model\{User as UserModel,GroupUser,Group as GroupModel,Message};
 use think\facade\Db;
+use utils\Str;
 
 class Group extends BaseController
 {
@@ -101,6 +102,7 @@ class Group extends BaseController
         $user_ids=$param['user_ids'];
         $data=[];
         try{
+            $joinedUserIds=[];
             foreach($user_ids as $k=>$v){
                 $data[]=[
                     'group_id'=>$group_id,
@@ -108,9 +110,38 @@ class Group extends BaseController
                     'role'=>3,
                     'invite_id'=>$uid
                 ];
+                $joinedUserIds[]=$v;
             }
             $groupUser=new GroupUser;
             $groupUser->saveAll($data);
+            $joinedUserIds=array_values(array_unique($joinedUserIds));
+            if($joinedUserIds){
+                $joinUserMap=UserModel::where([['user_id','in',$joinedUserIds]])->column('realname','user_id');
+                $joinNames=[];
+                foreach($joinedUserIds as $joinUserId){
+                    if(!empty($joinUserMap[$joinUserId])){
+                        $joinNames[]=$joinUserMap[$joinUserId];
+                    }
+                }
+                if($joinNames){
+                    $fromUser=$this->userInfo;
+                    $fromUser['id']=$uid;
+                    $fromUser['avatar']=avatarUrl($fromUser['avatar'],$fromUser['realname'],$uid);
+                    $msg=[
+                        'id'=>Str::getUuid(),
+                        'user_id'=>$uid,
+                        'content'=>lang('group.join',['username'=>implode('、',$joinNames)]),
+                        'toContactId'=>'group-'.$group_id,
+                        'sendTime'=>time()*1000,
+                        'type'=>'event',
+                        'is_group'=>1,
+                        'status'=>'succeed',
+                        'fromUser'=>$fromUser,
+                        'at'=>[],
+                    ];
+                    Message::sendMsg($msg,1);
+                }
+            }
             queuePush(['action'=>'createAvatar','group_id'=>$group_id]);
             return success(lang('system.addOk'));
         }catch(\Exception $e){
