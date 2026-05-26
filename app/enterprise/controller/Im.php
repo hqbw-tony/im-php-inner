@@ -292,6 +292,10 @@ class Im extends BaseController
         // 设置当前聊天消息为已读
         $chat_identify = $this->setIsRead($is_group, $toContactId);
         $map = ['chat_identify' => $chat_identify, 'status' => 1];
+        $deleteMsgId=ChatDelog::getDeleteMsgId($this->userInfo['user_id'],$toContactId,$is_group);
+        if($deleteMsgId){
+            $where[]=['msg_id','>',$deleteMsgId];
+        }
         $keywords = isset($param['keywords']) ? $param['keywords'] : '';
         if ($type && $type != "all") {
             $map['type'] = $type;
@@ -326,7 +330,11 @@ class Im extends BaseController
         // 如果是群聊并且是第一页消息，需要推送@数据给用户
         if($is_group==1 && $pageSize==1){
             $isPush=Cache::get('atMsgPush'.$chat_identify) ?? '';
-            $atList=Message::getAtList(['chat_identify'=>$chat_identify,'is_group'=>1],[],$this->userInfo['user_id']);
+            $atWhere=[];
+            if($deleteMsgId){
+                $atWhere[]=['msg_id','>',$deleteMsgId];
+            }
+            $atList=Message::getAtList(['chat_identify'=>$chat_identify,'is_group'=>1],$atWhere,$this->userInfo['user_id']);
             $msgIda=array_column($atList,'msg_id');
             // 如果两次推送at数据的列表不一样，则推送
             if($isPush!=json_encode($msgIda)){
@@ -361,7 +369,8 @@ class Im extends BaseController
         if(!GroupUser::checkGroupUser($group_id,$this->userInfo['user_id'])){
             return warning(lang('group.notCustom'));
         }
-        $atList=Message::getAtMsgList($group_id,$this->userInfo['user_id']);
+        $deleteMsgId=ChatDelog::getDeleteMsgId($this->userInfo['user_id'],$toContactId,1);
+        $atList=Message::getAtMsgList($group_id,$this->userInfo['user_id'],$deleteMsgId);
         $data=$atList ? $this->recombileMsg($atList,false) : [];
         return success('', [
             'count'=>count($atList),
@@ -398,6 +407,15 @@ class Im extends BaseController
         $groupManage=[];
         $where = [];
         $map = ['chat_identify' => $message['chat_identify'], 'status' => 1];
+        if($message['is_group']==1){
+            $deleteMsgId=ChatDelog::getDeleteMsgId($this->userInfo['user_id'],'group-'.$message['to_user'],1);
+        }else{
+            $contactId=$message['from_user']==$this->userInfo['user_id'] ? $message['to_user'] : $message['from_user'];
+            $deleteMsgId=ChatDelog::getDeleteMsgId($this->userInfo['user_id'],$contactId,0);
+        }
+        if($deleteMsgId){
+            $where[] = ['msg_id', '>', $deleteMsgId];
+        }
         if($is_group==1 && $direction<2){
             $group_id = $message['to_user'];
             $group=Group::where(['group_id'=> $group_id])->find();
@@ -417,6 +435,9 @@ class Im extends BaseController
             $beforeList = Message::where($map)->where($where)->order('msg_id desc')->limit(5)->select()->toArray();
             $beforeList = array_reverse($beforeList);
             $where2 = [];
+            if($deleteMsgId){
+                $where2[] = ['msg_id', '>', $deleteMsgId];
+            }
             $where2[] = ['msg_id', '>=', $id];
             $afterList = Message::where($map)->where($where2)->order('msg_id asc')->limit(5)->select()->toArray();
             $data = array_merge($beforeList, $afterList);
@@ -731,16 +752,13 @@ class Im extends BaseController
         if($id===''){
             return warning(lang('system.parameterError'));
         }
-        $data=[
-            'user_id'=>$user_id,
-            'is_group'=>$is_group,
-            'to_user'=>$id
-        ];
-        $chatDelog=ChatDelog::where($data)->find();
-        if(!$chatDelog){
-            ChatDelog::create($data);
+        $deleteMsgId=ChatDelog::recordDelete($user_id,$id,$is_group);
+        if($is_group==1){
+            $group_id = strpos($id,'group-')===0 ? (explode('-', $id)[1] ?? 0) : $id;
+            GroupUser::where(['user_id'=>$user_id,'group_id'=>$group_id])->update(['unread'=>0]);
+        }else{
+            Message::where([['to_user','=',$user_id],['from_user','=',$id],['is_group','=',0],['msg_id','<=',$deleteMsgId]])->update(['is_read'=>1]);
         }
-        ChatDelog::updateCache($user_id);
         return success('');
     }
 

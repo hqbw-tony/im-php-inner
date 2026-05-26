@@ -295,17 +295,18 @@ class User extends BaseModel
       }
       $list_chart=[];
       $config=Config::getSystemInfo();
+      $privateDeleteMap=ChatDelog::getDeleteMap($user_id,0);
+      $groupDeleteMap=ChatDelog::getDeleteMap($user_id,1);
       // 查询未读消息
-      $unread = Db::name('message')
-         ->field('from_user,count(msg_id) as unread')
+      $unreadRows = Db::name('message')
+         ->field('from_user,msg_id')
          ->where([['to_user', '=', $user_id], ['is_read', '=', 0], ['is_group', '=', 0]])
-         ->group('from_user')
          ->select();
-      $unread = self::matchListKey($unread,'from_user');
+      $unread = self::countPrivateUnread($unreadRows,$privateDeleteMap);
       // 查询最近的联系人
       $map1 = [['to_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
       $map2 = [['from_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
-      $msgField = 'from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user';
+      $msgField = 'msg_id,from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user';
       $lasMsgList = Db::name('message')
          ->field($msgField)
          ->whereOr([$map1, $map2])
@@ -324,10 +325,10 @@ class User extends BaseModel
          $group_ids = arrayToString($group, 'group_id');
          $getGroupLastMsg = Db::name('message')->field($msgField)->where([['to_user', 'in', $group_ids], ['is_group', '=', 1], ['is_last', '=', 1]])->select()->toArray();
          $getGroupLastMsgUser=$getGroupLastMsg ? self::matchUser($getGroupLastMsg,true,'from_user',120) : [];
-         $getAtMsg=Message::getGroupAtMsgCount($group_ids,$user_id);
+         $getAtMsg=Message::getGroupAtMsgCount($group_ids,$user_id,$groupDeleteMap);
          $getGroupLastMsg=self::matchListKey($getGroupLastMsg,'to_user');
          $getAtMsg=self::matchListKey($getAtMsg,'to_user');
-         $groupList=self::recombileGroupList($group,$getGroupLastMsg,$getAtMsg,false,$user_id,$getGroupLastMsgUser);
+         $groupList=self::recombileGroupList($group,$getGroupLastMsg,$getAtMsg,false,$user_id,$getGroupLastMsgUser,$groupDeleteMap);
       }
       try{
          Gateway::$registerAddress = config('gateway.registerAddress');
@@ -337,7 +338,7 @@ class User extends BaseModel
       }
       $isRegion=$config['sysInfo']['ipregion'] ?? 0;
       $friendList = Friend::getFriend(['create_user' => $user_id,'status'=>1]);
-      $list_chart=self::recombineUserList($list_chart,$isRegion,$friendList,$unread,$lasMsgList,$onlineList,$user_id);
+      $list_chart=self::recombineUserList($list_chart,$isRegion,$friendList,$unread,$lasMsgList,$onlineList,$user_id,$privateDeleteMap);
       // 合并群聊和联系人
       $data = array_merge($list_chart, $groupList);
       // 合并助手消息和聊天消息
@@ -393,16 +394,34 @@ class User extends BaseModel
       return $groupList;
    }
 
+   protected static function countPrivateUnread($unreadRows,$deleteMap=[])
+   {
+      $list=[];
+      foreach($unreadRows as $v){
+         $fromUser=(string)$v['from_user'];
+         $deleteMsgId=(int)($deleteMap[$fromUser] ?? 0);
+         if($deleteMsgId && (int)$v['msg_id']<=$deleteMsgId){
+            continue;
+         }
+         if(!isset($list[$fromUser])){
+            $list[$fromUser]=['from_user'=>$v['from_user'],'unread'=>0];
+         }
+         ++$list[$fromUser]['unread'];
+      }
+      return $list;
+   }
+
    //重新组成标准的群聊数据
-   protected static function recombileGroupList($group,$getGroupLastMsg=[],$getAtMsg=[],$is_all=false,$user_id=0,$getGroupLastMsgUser=[]){
+   protected static function recombileGroupList($group,$getGroupLastMsg=[],$getAtMsg=[],$is_all=false,$user_id=0,$getGroupLastMsgUser=[],$deleteMap=[]){
       $groupList=[];
       foreach ($group as $k => $v) {
          $val=$v;
          $group_id = 'group-' . $v['group_id'];
-         if($user_id && ChatDelog::isDeleted($user_id,$group_id,1)){
+         $groupVal=$getGroupLastMsg[$v['group_id']] ?? [];
+         $deleteMsgId=(int)($deleteMap[$group_id] ?? 0);
+         if($user_id && $deleteMsgId && (!$groupVal || (int)($groupVal['msg_id'] ?? 0)<=$deleteMsgId)){
             continue;
          }
-         $groupVal=$getGroupLastMsg[$v['group_id']] ?? [];
          $val['lastIsSelf'] = 0;
          $val['lastFromUser'] = [];
          if($groupVal){
@@ -443,19 +462,12 @@ class User extends BaseModel
    }
 
    // 重新组成标准的好友数据
-   protected static function recombineUserList($list_chart,$isRegion,$friendList,$unread=[],$lasMsgList=[],$onlineList=[],$user_id=0){
+   protected static function recombineUserList($list_chart,$isRegion,$friendList,$unread=[],$lasMsgList=[],$onlineList=[],$user_id=0,$deleteMap=[]){
       if(is_object($list_chart) && method_exists($list_chart,'toArray')){
          $list_chart=$list_chart->toArray();
       }
       if($list_chart){
          foreach ($list_chart as $k => $v) {
-            if($user_id){
-               // 过滤已删除的聊天
-               if(ChatDelog::isDeleted($user_id,$v['user_id'],0)){
-                  unset($list_chart[$k]);
-                  continue;
-               }
-            }
             // 是否有消息通知或者置顶聊天
             $friend = $friendList[$v['user_id']] ?? [];
             $list_chart[$k]['id'] = $v['user_id'];
@@ -487,6 +499,11 @@ class User extends BaseModel
             $list_chart[$k]['unread'] = $unrreadVal['unread'] ?? 0;
             $list_chart[$k]['type'] = 'text';
             $lastMsgVal=$lasMsgList[$v['user_id']] ?? [];
+            $deleteMsgId=(int)($deleteMap[(string)$v['user_id']] ?? 0);
+            if($user_id && $deleteMsgId && (!$lastMsgVal || (int)($lastMsgVal['msg_id'] ?? 0)<=$deleteMsgId)){
+               unset($list_chart[$k]);
+               continue;
+            }
             if($lastMsgVal){
                $content = str_encipher($lastMsgVal['lastContent'],false);
                $list_chart[$k]['type'] = $lastMsgVal['type'];

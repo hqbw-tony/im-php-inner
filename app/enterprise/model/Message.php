@@ -65,30 +65,65 @@ class Message extends BaseModel
     }
 
     // 查询群聊@我的未读消息
-    public static function getAtMsgList($group_id,$user_id){
-        return self::getAtList(['to_user'=>$group_id,'is_group'=>1],[],$user_id);
+    public static function getAtMsgList($group_id,$user_id,$deleteMsgId=0){
+        $where=[];
+        if($deleteMsgId){
+            $where[]=['msg_id','>',$deleteMsgId];
+        }
+        return self::getAtList(['to_user'=>$group_id,'is_group'=>1],$where,$user_id);
     }
 
     // 查询多个群聊@我的未读消息
-    public static function getGroupAtMsg($group_ids,$user_id,$field='*'){
-        return Db::name('message')
+    public static function getGroupAtMsg($group_ids,$user_id,$field='*',$deleteMap=[]){
+        $list=Db::name('message')
             ->field($field)
             ->where([['to_user','in',$group_ids],['is_group','=',1]])
             ->whereFindInSet('at',$user_id)
             ->select();
+        if(!$deleteMap){
+            return $list;
+        }
+        $data=[];
+        foreach($list as $v){
+            $deleteMsgId=(int)($deleteMap['group-'.$v['to_user']] ?? 0);
+            if(!$deleteMsgId || (int)($v['msg_id'] ?? 0)>$deleteMsgId){
+                $data[]=$v;
+            }
+        }
+        return $data;
     }
 
     // 查询多个群聊@我的未读数量
-    public static function getGroupAtMsgCount($group_ids,$user_id){
-        return Db::name('message')
-            ->field('to_user,count(msg_id) as count')
+    public static function getGroupAtMsgCount($group_ids,$user_id,$deleteMap=[]){
+        if(!$deleteMap){
+            return Db::name('message')
+                ->field('to_user,count(msg_id) as count')
+                ->where([['to_user','in',$group_ids],['is_group','=',1]])
+                ->whereFindInSet('at',$user_id)
+                ->group('to_user')
+                ->select();
+        }
+        $list=Db::name('message')
+            ->field('to_user,msg_id')
             ->where([['to_user','in',$group_ids],['is_group','=',1]])
             ->whereFindInSet('at',$user_id)
-            ->group('to_user')
             ->select();
+        $data=[];
+        foreach($list as $v){
+            $groupKey='group-'.$v['to_user'];
+            $deleteMsgId=(int)($deleteMap[$groupKey] ?? 0);
+            if($deleteMsgId && (int)$v['msg_id']<=$deleteMsgId){
+                continue;
+            }
+            if(!isset($data[$v['to_user']])){
+                $data[$v['to_user']]=['to_user'=>$v['to_user'],'count'=>0];
+            }
+            ++$data[$v['to_user']]['count'];
+        }
+        return array_values($data);
     }
 
-         //    发送消息
+    // 发送消息
     public function sendMessage($param,$globalConfig=false){
         $is_group = $param['is_group'] ?? 0;
         $uid=self::$uid ? : ($param['user_id'] ?? 1);
@@ -202,10 +237,6 @@ class Message extends BaseModel
         $uid=self::$uid ?: ($param['user_id'] ?? 1);
         $toContactId=$param['toContactId'];
         $manage=[];
-        // 重新建立会话，更新会话删除记录
-        if(ChatDelog::isDeleted($uid,$toContactId,$is_group)){
-            ChatDelog::deleteContact($uid,$toContactId,$is_group);
-        }
         if($is_group==1){
             $group_id = explode('-', $param['toContactId'])[1] ?? '';
             $chat_identify=$toContactId;
@@ -213,6 +244,12 @@ class Message extends BaseModel
             $manage=GroupUser::getGroupManage($group_id);
         }else{
             $chat_identify=chat_identify($param['user_id'],$toContactId);
+        }
+        if($is_group==1){
+            ChatDelog::ensureBoundaryBeforeNewMessage(0,$param['toContactId'],1);
+        }else{
+            ChatDelog::ensureBoundaryBeforeNewMessage($uid,$toContactId,0);
+            ChatDelog::ensureBoundaryBeforeNewMessage($toContactId,$uid,0);
         }
         $fileSzie=isset($param['file_size'])?$param['file_size']:'';
         $fileName=isset($param['file_name'])?$param['file_name']:'';
