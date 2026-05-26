@@ -170,7 +170,7 @@ class Group extends BaseController
                $msg=[
                   'id'=>Str::getUuid(),
                   'user_id'=>$uid,
-                  'content'=>lang('group.join',['username'=>implode('、',$joinNames)]),
+                  'content'=>lang('group.inviteJoin',['inviter'=>$this->userInfo['realname'],'username'=>implode('、',$joinNames)]),
                   'toContactId'=>'group-'.$group_id,
                   'sendTime'=>time()*1000,
                   'type'=>'event',

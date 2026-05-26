@@ -63,6 +63,7 @@ return [
         'notCustom'=>"You are not a member of this group and have no right to send messages!",
         'add' => "{:username} has created a group chat",  
         'join'=>"{:username} join the group chat",
+        'inviteJoin'=>"{:inviter} invited {:username} to join the group chat",
         'atLeast' => "Please select at least two people!",  
         'alreadyJoin' => "You are already in this group!",  
         'exist' => "The group chat does not exist",

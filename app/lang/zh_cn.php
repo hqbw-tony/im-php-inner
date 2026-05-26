@@ -62,6 +62,7 @@ return [
         'notCustom'=>"您不是本群成员，无权发送消息！",
         'add'=>"{:username}创建了群聊",
         'join'=>"{:username}加入了群聊",
+        'inviteJoin'=>"{:inviter}邀请{:username}加入了群聊",
         'atLeast'=>"请至少选择两人！",
         'alreadyJoin'=>'您已经加入该群！',
         'exist'=>"群聊不存在",
