@@ -71,6 +71,7 @@ CREATE TABLE `yu_friend` (
   `create_user` int(11) NOT NULL DEFAULT '0',
   `update_time` int(11) NOT NULL DEFAULT '0',
   `create_time` int(11) NOT NULL DEFAULT '0',
+  `apply_time` int(11) NOT NULL DEFAULT '0' COMMENT '申请时间',
   `delete_time` int(11) NOT NULL DEFAULT '0',
   `remark` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '申请备注',
   `status` tinyint(1) NOT NULL DEFAULT '1'

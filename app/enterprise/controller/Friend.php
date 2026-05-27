@@ -24,7 +24,7 @@ class Friend extends BaseController
         }
         $data=[];
         $model = new FriendModel();
-        $list = $this->paginate($model->where($map)->order('friend_id desc'));
+        $list = $this->paginate($model->where($map)->orderRaw(FriendModel::getApplyTimeOrder()));
         if ($list) {
             $data = $list->toArray()['data'];
             $userList = User::matchUser($data, true, ['create_user','friend_user_id'], 120);
@@ -76,16 +76,20 @@ class Friend extends BaseController
                 $status=1;
             }
         }
+        $applyTime=time();
         $data=[
             'friend_user_id'=>$user_id,
             'status'=>$status,
             'create_user'=>$this->uid,
             'remark'=>$param['remark'],
-            'is_invite'=>1 // 是否为发起方
+            'is_invite'=>1, // 是否为发起方
+            'apply_time'=>$applyTime,
+            'update_time'=>$applyTime
         ];
         if($friend){
             $friend->save($data);
         }else{
+            $data['create_time']=$applyTime;
             $model = new FriendModel();
             $model->save($data);
         }

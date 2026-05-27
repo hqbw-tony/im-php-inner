@@ -19,7 +19,7 @@ class Im extends BaseController
     {
         $data = User::getUserList([['status', '=', 1], ['user_id', '<>', $this->userInfo['user_id']]], $this->userInfo['user_id']);
         $count=Friend::where(['status'=>2,'friend_user_id'=>$this->uid])->count();
-        $time=Friend::where(['friend_user_id'=>$this->uid,'is_invite'=>1])->order('create_time desc')->value('create_time');
+        $time=Friend::getApplyLastTime($this->uid);
         return success('', $data,$count,$time*1000);
     }
 
@@ -28,7 +28,7 @@ class Im extends BaseController
     {
         $data = User::getChatList($this->userInfo['user_id']);
         $count=Friend::where(['status'=>2,'friend_user_id'=>$this->uid])->count();
-        $time=Friend::where(['friend_user_id'=>$this->uid,'is_invite'=>1])->order('create_time desc')->value('create_time');
+        $time=Friend::getApplyLastTime($this->uid);
         return success('', $data,$count,$time*1000);
     }
 
