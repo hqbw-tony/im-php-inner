@@ -50,7 +50,7 @@ class Friend extends BaseController
         }
         // 查看是否限制了好友上限
         if($this->userInfo['friend_limit']!=0 && $this->userInfo['role']==0){
-            $myFriend=FriendModel::where(['create_user'=>$this->userInfo['user_id']])->count();
+            $myFriend=FriendModel::where(['create_user'=>$this->userInfo['user_id'],'status'=>1])->count();
             // 好友已达上限
             if($myFriend>$this->userInfo['friend_limit'] || $this->userInfo['friend_limit']<0){
                return warning(lang('friend.limit'));
@@ -76,7 +76,6 @@ class Friend extends BaseController
                 $status=1;
             }
         }
-        $model = new FriendModel();
         $data=[
             'friend_user_id'=>$user_id,
             'status'=>$status,
@@ -84,7 +83,12 @@ class Friend extends BaseController
             'remark'=>$param['remark'],
             'is_invite'=>1 // 是否为发起方
         ];
-        $model->save($data);
+        if($friend){
+            $friend->save($data);
+        }else{
+            $model = new FriendModel();
+            $model->save($data);
+        }
         $msg=[
             'fromUser'=>[
                 'id'=>'system',
@@ -126,8 +130,10 @@ class Friend extends BaseController
             ];
             $newFriend=FriendModel::where($data)->find();
             if($newFriend){
+                if($newFriend->status==1){
+                    return success(lang('friend.already'));
+                }
                 FriendModel::where($data)->update(['status'=>1]);
-                return success(lang('friend.already'));
             }else{
                 $data['status']=1;
                 FriendModel::create($data);
@@ -153,7 +159,7 @@ class Friend extends BaseController
     public function del()
     {
         $param = $this->request->param();
-        $map=['friend_user_id'=>$param['id'],'create_user'=>$this->uid];
+        $map=['friend_user_id'=>$param['id'],'create_user'=>$this->uid,'status'=>1];
         $friend=FriendModel::where($map)->find();
         if(!$friend){
             return warning(lang('friend.not'));
@@ -164,9 +170,9 @@ class Friend extends BaseController
            FriendModel::where($map)->update(['status'=>3]);
            FriendModel::where(['friend_user_id'=>$this->uid,'create_user'=>$param['id']])->update(['status'=>3]);
         }else{
-            // 需要删除双方的好友关系
-            FriendModel::where($map)->delete();
-            FriendModel::where(['friend_user_id'=>$this->uid,'create_user'=>$param['id']])->delete();
+            // 只解除双方好友关系，保留 is_invite=1 的申请历史
+            FriendModel::where($map)->update(['status'=>0]);
+            FriendModel::where(['friend_user_id'=>$this->uid,'create_user'=>$param['id'],'status'=>1])->update(['status'=>0]);
         }
         // 性质和删除群聊一样
         wsSendMsg($param['id'],'removeGroup',['group_id'=>$this->uid]);

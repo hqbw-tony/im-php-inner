@@ -177,12 +177,12 @@ class Message extends BaseModel
                     // 判断我是不是对方的客服
                     $cus = User::where(['user_id' => $param['toContactId']])->value('cs_uid');
                     if ($cus != $uid) {
-                        $friend = Friend::where(['friend_user_id' => $uid, 'create_user' => $param['toContactId']])->find();
+                        $friend = Friend::where(['friend_user_id' => $uid, 'create_user' => $param['toContactId'], 'status' => 1])->find();
                         if (!$friend) {
                             $this->error=lang('im.notFriend');
                             return false;
                         }
-                        $otherFriend = Friend::where(['friend_user_id' => $param['toContactId'], 'create_user' => $uid])->find();
+                        $otherFriend = Friend::where(['friend_user_id' => $param['toContactId'], 'create_user' => $uid, 'status' => 1])->find();
                         if (!$otherFriend) {
                             $this->error=lang('im.friendNot');
                             return false;

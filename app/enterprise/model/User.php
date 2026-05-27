@@ -600,7 +600,7 @@ class User extends BaseModel
          array_splice($idr, $key, 1);
       }
       $userList = self::where([['user_id', 'in', $idr]])->field(self::$defaultField)->select()->toArray();
-      $friend = Friend::where([['friend_user_id', 'in', $idr],['create_user','=',self::$uid]])->field('friend_user_id,nickname')->select()->toArray();
+      $friend = Friend::where([['friend_user_id', 'in', $idr],['create_user','=',self::$uid],['status','=',1]])->field('friend_user_id,nickname')->select()->toArray();
       $list = [];
       foreach ($userList as $v) {
          $v['avatar'] = avatarUrl($v['avatar'], $v['realname'], $v['user_id'], $cs);
@@ -706,7 +706,7 @@ class User extends BaseModel
          }
          $user->avatar=avatarUrl($user->avatar,$user->realname,$user->user_id,120);
          // 查询好友关系
-         $friend= self::$userInfo ? Friend::where(['friend_user_id'=>$id,'create_user'=>self::$userInfo['user_id']])->find() : [];
+         $friend= self::$userInfo ? Friend::where(['friend_user_id'=>$id,'create_user'=>self::$userInfo['user_id'],'status'=>1])->find() : [];
          $data['displayName'] = self::getFriendDisplayName($friend,$user['realname']);
          $data['avatar'] = avatarUrl($user['avatar'], $user['realname'], $user['user_id'], 120);
          $data['location'] =$user['last_login_ip'] ? implode(" ", \Ip::find($user['last_login_ip'])) : "未知";
