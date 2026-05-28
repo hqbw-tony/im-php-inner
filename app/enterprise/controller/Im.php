@@ -840,40 +840,17 @@ class Im extends BaseController
             $event='busy';
             sleep(1);
         }
-        switch($code){
-            case 902:
-                $content=lang('webRtc.cancel');
-                break;
-            case 903:
-                $content=lang('webRtc.refuse');
-                break;
-            case 905:
-                $content=lang('webRtc.notConnected');
-                break;
-            case 906:
-                $content=lang('webRtc.duration',['time'=>date("i:s",$callTime)]);
-                break;
-            case 907:
-                $content=lang('webRtc.busy');
-                break;
-            case 908:
-                $content=lang('webRtc.other');
-                break;
-            default:
-                $content=$type==1 ?lang('webRtc.video') : lang('webRtc.audio');
-                break;
-        }
-        switch($event){
-            case 'calling':
-                $content=$type==1 ?lang('webRtc.video'): lang('webRtc.audio');
-                break;
-            case 'acceptRtc':
-                $content=lang('webRtc.answer');
-                break;
-            case 'iceCandidate':
-                $content=lang('webRtc.exchange');
-                break;
-        }
+        $extends=[
+            'type'=>$type,    //通话类型，1视频，0语音。
+            'status'=>$status, //，1拨打方，2接听方
+            'event'=>$event,
+            'callTime'=>$callTime,
+            'sdp'=>$sdp,
+            'code'=>$code,  //通话状态:呼叫901，取消902，拒绝903，接听904，未接通905，接通后挂断906，忙线907,其他端操作908
+            'iceCandidate'=>$iceCandidate,
+            'isMobile'=>$this->request->isMobile() ? 1 : 0,
+        ];
+        $content=Message::renderWebRtcContent('', $extends, $this->userInfo['user_id']);
         $userInfo=$this->userInfo;
         $userInfo['id']=$userInfo['user_id'];
         $user = new User();
@@ -889,16 +866,7 @@ class Im extends BaseController
             'is_read'=>0,
             'fromUser'=>$userInfo,
             'at'=>[],
-            'extends'=>[
-                'type'=>$type,    //通话类型，1视频，0语音。
-                'status'=>$status, //，1拨打方，2接听方
-                'event'=>$event,
-                'callTime'=>$callTime,
-                'sdp'=>$sdp,
-                'code'=>$code,  //通话状态:呼叫901，取消902，拒绝903，接听904，未接通905，接通后挂断906，忙线907,其他端操作908
-                'iceCandidate'=>$iceCandidate,
-                'isMobile'=>$this->request->isMobile() ? 1 : 0,
-            ]
+            'extends'=>$extends
         ];
         if($event=='calling'){
             $chat_identify=chat_identify($userInfo['id'],$toContactId);
@@ -928,22 +896,29 @@ class Im extends BaseController
                 return error(lang('webRtc.fail'));
             }
             if($message){
-                $message->content=str_encipher($content);
-                $extends=$message->extends;
-                $extends['code']=$code;
-                $extends['callTime']=$callTime;
-                $message->extends=$extends;
+                $msgExtends=is_array($message->extends) ? $message->extends : [];
+                $msgExtends['type']=$msgExtends['type'] ?? $type;
+                $msgExtends['status']=$status;
+                $msgExtends['event']=$event;
+                $msgExtends['callTime']=$callTime;
+                $msgExtends['sdp']=$sdp;
+                $msgExtends['code']=$code;
+                $msgExtends['iceCandidate']=$iceCandidate;
+                $msgExtends['isMobile']=$this->request->isMobile() ? 1 : 0;
+                $message->content=str_encipher(Message::renderWebRtcContent('', $msgExtends, $this->userInfo['user_id']));
+                $message->extends=$msgExtends;
                 $message->save();
             }
         }
-        wsSendMsg($toContactId,'webrtc',$data);
-        $wsData=$data;
+        wsSendMsg($toContactId,'webrtc',Message::renderSendDataForUser($data,$toContactId));
+        $wsData=Message::renderSendDataForUser($data,$userInfo['id']);
         if(in_array($event,['calling','acceptRtc','hangup'])){
             if(in_array($event,['acceptRtc','hangup'])){
                 $data['extends']['event']='otherOpt'; //其他端操作
             }
             $data['toContactId']=$toContactId;
-            $data['contactInfo']=$user->setContact($toContactId,0,'webrtc',$content) ? : [];
+            $data=Message::renderSendDataForUser($data,$userInfo['id']);
+            $data['contactInfo']=$user->setContact($toContactId,0,'webrtc',$data['content']) ? : [];
             wsSendMsg($userInfo['id'],'webrtc',$data);
         }
         return success('',$wsData);

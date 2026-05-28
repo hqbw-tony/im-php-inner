@@ -77,6 +77,90 @@ class Message extends BaseModel
         return self::renderI18n($i18n['key'],$i18n['params'],$user_id,$language);
     }
 
+    public static function renderWebRtcContent($content,$extends,$user_id=0,$language='')
+    {
+        if(is_string($extends)){
+            $extends=json_decode($extends,true) ?: [];
+        }
+        if(!is_array($extends)){
+            return $content;
+        }
+        $code=(int)($extends['code'] ?? 0);
+        if(!$code){
+            $code=self::matchWebRtcCodeByContent($content);
+        }
+        $callType=self::renderI18n(((int)($extends['type'] ?? 0))===1 ? 'webRtc.video' : 'webRtc.audio',[],$user_id,$language);
+        $params=['type'=>$callType,'time'=>self::formatWebRtcTime($extends['callTime'] ?? 0)];
+        switch($code){
+            case 902:
+                return self::renderI18n('webRtc.cancelTyped',$params,$user_id,$language);
+            case 903:
+                return self::renderI18n('webRtc.refuseTyped',$params,$user_id,$language);
+            case 904:
+                return self::renderI18n('webRtc.answerTyped',$params,$user_id,$language);
+            case 905:
+                return self::renderI18n('webRtc.notConnectedTyped',$params,$user_id,$language);
+            case 906:
+                return $params['time'] ? self::renderI18n('webRtc.durationTyped',$params,$user_id,$language) : self::renderI18n('webRtc.endTyped',$params,$user_id,$language);
+            case 907:
+                return self::renderI18n('webRtc.busy',$params,$user_id,$language);
+            case 908:
+                return self::renderI18n('webRtc.other',$params,$user_id,$language);
+            case 901:
+                return $callType;
+        }
+        $event=$extends['event'] ?? '';
+        if($event=='calling'){
+            return $callType;
+        }
+        if($event=='acceptRtc'){
+            return self::renderI18n('webRtc.answerTyped',$params,$user_id,$language);
+        }
+        if($event=='iceCandidate'){
+            return self::renderI18n('webRtc.exchange',$params,$user_id,$language);
+        }
+        if($content===''){
+            return $callType;
+        }
+        return $content;
+    }
+
+    protected static function formatWebRtcTime($time)
+    {
+        $seconds=max((int)$time,0);
+        if(!$seconds){
+            return '';
+        }
+        $hour=floor($seconds/3600);
+        $minute=floor(($seconds%3600)/60);
+        $second=$seconds%60;
+        return $hour>0 ? sprintf('%02d:%02d:%02d',$hour,$minute,$second) : sprintf('%02d:%02d',$minute,$second);
+    }
+
+    protected static function matchWebRtcCodeByContent($content)
+    {
+        $text=strtolower(trim(strip_tags((string)$content)));
+        if($text===''){
+            return 0;
+        }
+        if(strpos($text,'cancel')!==false || strpos($text,'取消')!==false || strpos($text,'キャンセル')!==false || strpos($text,'취소')!==false){
+            return 902;
+        }
+        if(strpos($text,'reject')!==false || strpos($text,'declin')!==false || strpos($text,'refus')!==false || strpos($text,'拒绝')!==false || strpos($text,'拒否')!==false || strpos($text,'거절')!==false){
+            return 903;
+        }
+        if(strpos($text,'no answer')!==false || strpos($text,'missed')!==false || strpos($text,'未接')!==false || strpos($text,'无人接听')!==false || strpos($text,'応答がありません')!==false || strpos($text,'응답 없음')!==false || strpos($text,'응답이 없습니다')!==false){
+            return 905;
+        }
+        if(strpos($text,'busy')!==false || strpos($text,'忙')!==false || strpos($text,'通話中')!==false || strpos($text,'통화 중')!==false){
+            return 907;
+        }
+        if(strpos($text,'duration')!==false || strpos($text,'ended')!==false || strpos($text,'finished')!==false || strpos($text,'时长')!==false || strpos($text,'结束')!==false || strpos($text,'終了')!==false || strpos($text,'종료')!==false){
+            return 906;
+        }
+        return 0;
+    }
+
     public static function groupNoticeExtends($notice,$extends=null)
     {
         if(is_string($extends)){
@@ -118,6 +202,13 @@ class Message extends BaseModel
             return self::renderGroupNoticeContent($notice,$user_id);
         }
         $type=$message['type'] ?? '';
+        if($type=='webrtc'){
+            return self::renderWebRtcContent($content,$message['extends'] ?? null,$user_id);
+        }
+        $i18n=self::getI18nInfo($message['extends'] ?? null);
+        if($i18n){
+            return self::renderI18n($i18n['key'],$i18n['params'],$user_id);
+        }
         if($type!='event'){
             return $content;
         }
@@ -138,7 +229,10 @@ class Message extends BaseModel
         if(self::getGroupNoticeContent($data['extends'] ?? null)!==null){
             return true;
         }
-        return ($data['type'] ?? '')=='event' && self::getI18nInfo($data['extends'] ?? null);
+        if(self::getI18nInfo($data['extends'] ?? null)){
+            return true;
+        }
+        return ($data['type'] ?? '')=='webrtc';
     }
 
     public static function wsSendGroupI18n($group_id,$type,$data)
