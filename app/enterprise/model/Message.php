@@ -77,8 +77,46 @@ class Message extends BaseModel
         return self::renderI18n($i18n['key'],$i18n['params'],$user_id,$language);
     }
 
+    public static function groupNoticeExtends($notice,$extends=null)
+    {
+        if(is_string($extends)){
+            $extends=json_decode($extends,true) ?: [];
+        }
+        if(!is_array($extends)){
+            $extends=[];
+        }
+        $extends['group_notice']=[
+            'content'=>(string)$notice,
+        ];
+        return $extends;
+    }
+
+    public static function getGroupNoticeContent($extends)
+    {
+        if(is_string($extends)){
+            $extends=json_decode($extends,true) ?: [];
+        }
+        if(!is_array($extends) || !isset($extends['group_notice'])){
+            return null;
+        }
+        if(is_array($extends['group_notice'])){
+            return (string)($extends['group_notice']['content'] ?? '');
+        }
+        return (string)$extends['group_notice'];
+    }
+
+    public static function renderGroupNoticeContent($notice,$user_id=0,$language='')
+    {
+        $language=User::normalizeLanguage($language) ?: User::getUserLanguage($user_id);
+        return '<b>'.lang('group.notice',[],$language).'：</b>&nbsp;@'.lang('group.all',[],$language).'<br/>'.(string)$notice.'<br/>';
+    }
+
     public static function renderMessageContent($message,$content='',$user_id=0)
     {
+        $notice=self::getGroupNoticeContent($message['extends'] ?? null);
+        if($notice!==null){
+            return self::renderGroupNoticeContent($notice,$user_id);
+        }
         $type=$message['type'] ?? '';
         if($type!='event'){
             return $content;
@@ -88,20 +126,24 @@ class Message extends BaseModel
 
     public static function renderSendDataForUser($data,$user_id)
     {
-        if(($data['type'] ?? '')!='event'){
-            return $data;
-        }
-        $data['content']=self::renderEventContent($data['content'] ?? '',$data['extends'] ?? null,$user_id);
+        $data['content']=self::renderMessageContent($data,$data['content'] ?? '',$user_id);
         if(isset($data['contactInfo']) && is_array($data['contactInfo'])){
             $data['contactInfo']['lastContent']=$data['content'];
         }
         return $data;
     }
 
+    public static function needsUserContentRender($data)
+    {
+        if(self::getGroupNoticeContent($data['extends'] ?? null)!==null){
+            return true;
+        }
+        return ($data['type'] ?? '')=='event' && self::getI18nInfo($data['extends'] ?? null);
+    }
+
     public static function wsSendGroupI18n($group_id,$type,$data)
     {
-        $i18n=self::getI18nInfo($data['extends'] ?? null);
-        if(!$i18n || ($data['type'] ?? '')!='event'){
+        if(!self::needsUserContentRender($data)){
             wsSendMsg($group_id,$type,$data,1);
             return;
         }
@@ -460,7 +502,7 @@ class Message extends BaseModel
         if($is_group){
             $sendData['contactInfo']=$user->setContact($sendData['toContactId'],$is_group,$sendData['type'],$sendData['content']);
             self::wsSendGroupI18n($toContactId,$type,$sendData);
-            return $sendData;
+            return self::renderSendDataForUser($sendData,$uid);
         }
         // 单聊需要按接收方和发送方自己的其他端分别组装 contactInfo，避免重建会话时头像视角错误。
         $receiverData=$sendData;

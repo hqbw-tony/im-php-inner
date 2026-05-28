@@ -437,17 +437,19 @@ class Group extends BaseController
             return warning(lang('system.notAuth'));
          }
          GroupModel::update(['notice'=>$param['notice']],['group_id'=>$group_id]);
+         $extends=Message::groupNoticeExtends($param['notice']);
          $msg=[
             'id'=>\utils\Str::getUuid(),
             'user_id'=>$uid,
-            'content'=>'<b>'.lang('group.notice').'：</b>&nbsp;@'.lang('group.all').'<br/>'.$param['notice'].'<br/>',
+            'content'=>Message::renderGroupNoticeContent($param['notice'],$uid),
             'toContactId'=>$param['id'],
             'sendTime'=>time()*1000,
             'type'=>'text',
             'is_group'=>1,
             'status'=>'succeed',
             'fromUser'=>$this->userInfo,
-            'at'=>[0]
+            'at'=>[0],
+            'extends'=>$extends,
          ];
          $message=new Message();
          $data = $message->sendMessage($msg,$this->globalConfig);
