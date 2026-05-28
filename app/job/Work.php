@@ -188,6 +188,11 @@ class Work
                     $error++;
                     continue;
                 }
+                $message=new Message();
+                if($is_group==0 && !$message->validateForwardTargets([$v],$userInfo,$data['config'])){
+                    $error++;
+                    continue;
+                }
                 $msgInfo['id']=\utils\Str::getUuid();
                 $msgInfo['status']='successd';
                 $msgInfo['user_id']=$userInfo['user_id'];
@@ -200,7 +205,6 @@ class Work
                     'displayName'=>$userInfo['realname']
                 ];
                 $msgInfo['is_group']=$is_group;
-                $message=new Message();
                 $msgInfo['is_forward']=1;
                 $isSend=$message->sendMessage($msgInfo,$data['config']);
                 if(!$isSend){

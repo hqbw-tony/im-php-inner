@@ -340,11 +340,9 @@ class Message extends BaseModel
     protected function checkSimpleForwardTarget($toContactId,$uid,$userInfo,$globalConfig)
     {
         $chatSetting=$globalConfig['chatInfo'] ?? [];
-        $sysInfo=$globalConfig['sysInfo'] ?? [];
         $kefuUser=$chatSetting['autoAddUser']['user_ids'] ?? [];
         $manageUser=User::where([['status','=',1],['role','>',0]])->column('user_id');
         $kefu=array_unique(array_merge($kefuUser,$manageUser));
-        $csUid=$userInfo['cs_uid'] ?? 0;
         $manage=false;
         if(in_array($uid,$kefu) || in_array($toContactId,$kefu)){
             $manage=true;
@@ -353,20 +351,15 @@ class Message extends BaseModel
             $this->error=lang('im.forbidChat');
             return false;
         }
-        if(($sysInfo['runMode'] ?? 1) == 2 && $csUid != $toContactId && !$manage){
-            $cus=User::where(['user_id'=>$toContactId])->value('cs_uid');
-            if($cus != $uid){
-                $friend=Friend::where(['friend_user_id'=>$uid,'create_user'=>$toContactId,'status'=>1])->find();
-                if(!$friend){
-                    $this->error=lang('im.notFriend');
-                    return false;
-                }
-                $otherFriend=Friend::where(['friend_user_id'=>$toContactId,'create_user'=>$uid,'status'=>1])->find();
-                if(!$otherFriend){
-                    $this->error=lang('im.friendNot');
-                    return false;
-                }
-            }
+        $friend=Friend::where(['friend_user_id'=>$toContactId,'create_user'=>$uid,'status'=>1])->find();
+        if(!$friend){
+            $this->error=lang('im.friendNot');
+            return false;
+        }
+        $otherFriend=Friend::where(['friend_user_id'=>$uid,'create_user'=>$toContactId,'status'=>1])->find();
+        if(!$otherFriend){
+            $this->error=lang('im.notFriend');
+            return false;
         }
         return true;
     }
