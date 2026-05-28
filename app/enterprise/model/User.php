@@ -76,6 +76,48 @@ class User extends BaseModel
       return self::getClientDefaultLanguage();
    }
 
+   public static function normalizeSetting($setting=[],$user_id=0)
+   {
+      if(is_string($setting)){
+         $setting=json_decode($setting,true) ?: [];
+      }
+      if(!is_array($setting)){
+         $setting=[];
+      }
+      $setting=array_merge([
+         'theme'=>'default',
+         'isVoice'=>true,
+         'sendKey'=>1,
+         'avatarCricle'=>false,
+         'hideMessageName'=>false,
+         'hideMessageTime'=>false,
+      ],$setting);
+      foreach(['hideMessageName','hideMessageTime','avatarCricle','isVoice'] as $field){
+         $setting[$field]=self::settingBool($setting[$field] ?? false);
+      }
+      $setting['sendKey']=(int)($setting['sendKey'] ?? 1);
+      if(!$setting['sendKey']){
+         $setting['sendKey']=1;
+      }
+      if($user_id){
+         $setting['language']=self::getUserLanguage($user_id,$setting);
+      }else{
+         $setting['language']=self::normalizeLanguage($setting['language'] ?? '') ?: self::getClientDefaultLanguage();
+      }
+      return $setting;
+   }
+
+   private static function settingBool($value)
+   {
+      if(is_bool($value)){
+         return $value;
+      }
+      if(is_numeric($value)){
+         return (int)$value===1;
+      }
+      return in_array(strtolower(trim((string)$value)),['1','true','yes','on'],true);
+   }
+
    public static function resolveLanguage($user_id=0,$request=null,$setting=null)
    {
       return self::getRequestLanguage($request) ?: self::getUserLanguage($user_id,$setting);

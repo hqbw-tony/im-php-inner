@@ -164,17 +164,7 @@ class Im extends BaseController
             return warning(lang('user.loginError'));
         }
         //    如果用户已经有设置
-        $setting=$userInfo['setting'] ?: '';
-        if($setting){
-            $setting['hideMessageName']= $setting['hideMessageName']=='true' ? true : false;
-            $setting['hideMessageTime']= $setting['hideMessageTime']=='true' ? true : false;
-            $setting['avatarCricle']= $setting['avatarCricle']=='true' ? true : false;
-            $setting['isVoice']= $setting['isVoice']=='true' ? true : false;
-            $setting['sendKey']=(int)$setting['sendKey'];
-        }else{
-            $setting=[];
-        }
-        $setting['language']=User::getUserLanguage($userInfo['user_id'],$setting);
+        $setting=User::normalizeSetting($userInfo['setting'] ?: [],$userInfo['user_id']);
         $userInfo['setting']=$setting;
          Gateway::$registerAddress = config('gateway.registerAddress');
         //如果登录信息中含有client——id则自动进行绑定
@@ -609,7 +599,8 @@ class Im extends BaseController
             }else{
                 $param['language']=User::normalizeLanguage($oldSetting['language'] ?? '') ?: User::getUserLanguage($this->userInfo['user_id'],$oldSetting);
             }
-            User::where(['user_id' => $this->userInfo['user_id']])->update(['setting' => $param]);
+            $setting=User::normalizeSetting(array_merge($oldSetting,$param),$this->userInfo['user_id']);
+            User::where(['user_id' => $this->userInfo['user_id']])->update(['setting' => $setting]);
             return success('');
         }
         return warning('');
