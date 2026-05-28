@@ -78,6 +78,12 @@ class Im extends BaseController
     {
         $param = $this->request->param();
         $userIds=$param['user_ids'] ?? [];
+        if(!is_array($userIds)){
+            $userIds=$userIds!=='' ? explode(',',$userIds) : [];
+        }
+        $userIds=array_values(array_unique(array_filter($userIds,function($id){
+            return $id!=='' && $id!==null;
+        })));
         if(!$userIds || count($userIds)>5){
             return warning(lang('im.forwardLimit',['count'=>5]));
         }
@@ -85,6 +91,10 @@ class Im extends BaseController
         $message=Message::find($msg_id);
         if(!$message){
             return warning(lang('im.exist'));
+        }
+        $messageModel=new Message();
+        if(!$messageModel->validateForwardTargets($userIds,$this->userInfo,$this->globalConfig)){
+            return warning($messageModel->getError());
         }
         $msg=$message->toArray();
         $userInfo=$this->userInfo;

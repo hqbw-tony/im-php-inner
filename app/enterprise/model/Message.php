@@ -310,6 +310,67 @@ class Message extends BaseModel
         return self::sendMsg($param,$is_group);
     }
 
+    public function validateForwardTargets($userIds,$userInfo,$globalConfig)
+    {
+        $uid=(int)($userInfo['user_id'] ?? 0);
+        if(!$uid || !is_array($userIds)){
+            $this->error=lang('system.parameterError');
+            return false;
+        }
+        foreach($userIds as $toContactId){
+            $toContactId=(string)$toContactId;
+            if($toContactId===''){
+                $this->error=lang('system.parameterError');
+                return false;
+            }
+            if(strpos($toContactId,'group')!==false || $toContactId==='-1'){
+                continue;
+            }
+            if(!is_numeric($toContactId)){
+                $this->error=lang('system.parameterError');
+                return false;
+            }
+            if(!$this->checkSimpleForwardTarget($toContactId,$uid,$userInfo,$globalConfig)){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected function checkSimpleForwardTarget($toContactId,$uid,$userInfo,$globalConfig)
+    {
+        $chatSetting=$globalConfig['chatInfo'] ?? [];
+        $sysInfo=$globalConfig['sysInfo'] ?? [];
+        $kefuUser=$chatSetting['autoAddUser']['user_ids'] ?? [];
+        $manageUser=User::where([['status','=',1],['role','>',0]])->column('user_id');
+        $kefu=array_unique(array_merge($kefuUser,$manageUser));
+        $csUid=$userInfo['cs_uid'] ?? 0;
+        $manage=false;
+        if(in_array($uid,$kefu) || in_array($toContactId,$kefu)){
+            $manage=true;
+        }
+        if(($chatSetting['simpleChat'] ?? 1) == 0 && !$manage){
+            $this->error=lang('im.forbidChat');
+            return false;
+        }
+        if(($sysInfo['runMode'] ?? 1) == 2 && $csUid != $toContactId && !$manage){
+            $cus=User::where(['user_id'=>$toContactId])->value('cs_uid');
+            if($cus != $uid){
+                $friend=Friend::where(['friend_user_id'=>$uid,'create_user'=>$toContactId,'status'=>1])->find();
+                if(!$friend){
+                    $this->error=lang('im.notFriend');
+                    return false;
+                }
+                $otherFriend=Friend::where(['friend_user_id'=>$toContactId,'create_user'=>$uid,'status'=>1])->find();
+                if(!$otherFriend){
+                    $this->error=lang('im.friendNot');
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     //实际发送消息
     public static function sendMsg($param,$is_group=0,$is_sys=0){
         $uid=self::$uid ?: ($param['user_id'] ?? 1);
