@@ -33,6 +33,84 @@ class Message extends BaseModel
         return trim($content);
     }
 
+    public static function i18nExtends($key,$params=[],$extends=null)
+    {
+        if(is_string($extends)){
+            $extends=json_decode($extends,true) ?: [];
+        }
+        if(!is_array($extends)){
+            $extends=[];
+        }
+        $extends['i18n']=[
+            'key'=>$key,
+            'params'=>$params ?: [],
+        ];
+        return $extends;
+    }
+
+    public static function renderI18n($key,$params=[],$user_id=0,$language='')
+    {
+        $language=User::normalizeLanguage($language) ?: User::getUserLanguage($user_id);
+        return lang($key,$params ?: [],$language);
+    }
+
+    public static function getI18nInfo($extends)
+    {
+        if(is_string($extends)){
+            $extends=json_decode($extends,true) ?: [];
+        }
+        if(!is_array($extends) || empty($extends['i18n']['key'])){
+            return [];
+        }
+        return [
+            'key'=>$extends['i18n']['key'],
+            'params'=>$extends['i18n']['params'] ?? [],
+        ];
+    }
+
+    public static function renderEventContent($content,$extends,$user_id=0,$language='')
+    {
+        $i18n=self::getI18nInfo($extends);
+        if(!$i18n){
+            return $content;
+        }
+        return self::renderI18n($i18n['key'],$i18n['params'],$user_id,$language);
+    }
+
+    public static function renderMessageContent($message,$content='',$user_id=0)
+    {
+        $type=$message['type'] ?? '';
+        if($type!='event'){
+            return $content;
+        }
+        return self::renderEventContent($content,$message['extends'] ?? null,$user_id);
+    }
+
+    public static function renderSendDataForUser($data,$user_id)
+    {
+        if(($data['type'] ?? '')!='event'){
+            return $data;
+        }
+        $data['content']=self::renderEventContent($data['content'] ?? '',$data['extends'] ?? null,$user_id);
+        if(isset($data['contactInfo']) && is_array($data['contactInfo'])){
+            $data['contactInfo']['lastContent']=$data['content'];
+        }
+        return $data;
+    }
+
+    public static function wsSendGroupI18n($group_id,$type,$data)
+    {
+        $i18n=self::getI18nInfo($data['extends'] ?? null);
+        if(!$i18n || ($data['type'] ?? '')!='event'){
+            wsSendMsg($group_id,$type,$data,1);
+            return;
+        }
+        $userIds=GroupUser::where(['group_id'=>$group_id,'status'=>1])->column('user_id');
+        foreach($userIds as $userId){
+            wsSendMsg($userId,$type,self::renderSendDataForUser($data,$userId),0);
+        }
+    }
+
     // 添加聊天记录
     public static function addData($data){
        return Db::name('message')->insert($data);
@@ -327,16 +405,18 @@ class Message extends BaseModel
         
         if($is_group){
             $sendData['contactInfo']=$user->setContact($sendData['toContactId'],$is_group,$sendData['type'],$sendData['content']);
-            wsSendMsg($toContactId,$type,$sendData,$is_group);
+            self::wsSendGroupI18n($toContactId,$type,$sendData);
             return $sendData;
         }
         // 单聊需要按接收方和发送方自己的其他端分别组装 contactInfo，避免重建会话时头像视角错误。
         $receiverData=$sendData;
         $receiverData['toContactId']=$uid;
+        $receiverData=self::renderSendDataForUser($receiverData,$toContactId);
         $receiverData['contactInfo']=$user->setContact($uid,0,$receiverData['type'],$receiverData['content']);
         wsSendMsg($toContactId,$type,$receiverData,0);
         $senderData=$sendData;
         $senderData['toContactId']=$param['toContactId'];
+        $senderData=self::renderSendDataForUser($senderData,$uid);
         $senderData['contactInfo']=$user->setContact($param['toContactId'],0,$senderData['type'],$senderData['content']);
         wsSendMsg($uid,$type,$senderData,0,false);
         return $senderData;

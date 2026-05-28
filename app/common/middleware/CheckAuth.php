@@ -5,6 +5,8 @@ use Exception;
 use thans\jwt\exception\TokenInvalidException;
 use thans\jwt\facade\JWTAuth;
 use think\facade\Cache;
+use think\facade\Lang;
+use app\enterprise\model\User;
 //验证权限
 class CheckAuth
 {
@@ -44,8 +46,10 @@ class CheckAuth
             return shutdown(lang('user.forbid'), -1);
         }
         //已经登陆，将用户信息存入请求头
+        $uid=$userInfo['user_id'] ?? ($userInfo['id'] ?? 0);
+        Lang::setLangSet(User::resolveLanguage($uid,$request));
         $request->userInfo  = $userInfo;
-        $request->uid       = $userInfo['id'];
+        $request->uid       = $uid;
         $request->userToken = JWTAuth::token()->get();
         return $next($request);
     }

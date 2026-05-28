@@ -22,6 +22,9 @@ class Config extends BaseController
     {
         $name=$this->request->param('name');
         $data = Conf::where(['name'=>$name])->value('value');
+        if($name=='sysInfo'){
+            $data['clientDefaultLang']=Conf::normalizeClientDefaultLang($data['clientDefaultLang'] ?? '') ?: 'zh-cn';
+        }
         return success('', $data);
     }
 
@@ -33,6 +36,13 @@ class Config extends BaseController
     {
         $name=['sysInfo','chatInfo','smtp','fileUpload','compass'];
         $list = Conf::where(['name'=>$name])->select();
+        foreach($list as $k=>$v){
+            if($v['name']=='sysInfo'){
+                $value=$v['value'];
+                $value['clientDefaultLang']=Conf::normalizeClientDefaultLang($value['clientDefaultLang'] ?? '') ?: 'zh-cn';
+                $list[$k]['value']=$value;
+            }
+        }
         return success('', $list);
     }
 
@@ -44,6 +54,9 @@ class Config extends BaseController
     {
         $name = $this->request->param('name');
         $value = $this->request->param('value');
+        if($name=='sysInfo'){
+            $value['clientDefaultLang']=Conf::normalizeClientDefaultLang($value['clientDefaultLang'] ?? '') ?: 'zh-cn';
+        }
         if(Conf::where(['name'=>$name])->find()){
             Conf::where(['name'=>$name])->update(['value'=>$value]);
         }else{

@@ -28,11 +28,12 @@ class GroupChange
             $userInfo=$userInfo->toArray();
             $userInfo['id']=$userInfo['user_id'];
             $userInfo['avatar']=avatarUrl($userInfo['avatar'],$userInfo['realname'],$userInfo['user_id']);
+            $joinParams=['username'=>$groupInfo['joinerName'] ?? 'xxx '];
             // 发送入群事件
             $msg=[
                 'id'=>\utils\Str::getUuid(),
                 'user_id'=>$uid,
-                'content'=>lang('group.join',['username'=>$groupInfo['joinerName'] ?? 'xxx ']),
+                'content'=>Message::renderI18n('group.join',$joinParams,$uid),
                 'toContactId'=>'group-'.$data['group_id'],
                 'sendTime'=>time()*1000,
                 'type'=>'event',
@@ -41,6 +42,7 @@ class GroupChange
                 'fromUser'=>$userInfo,
                 'at'=>[],
                 'action'=>$data['action'],
+                'extends'=>Message::i18nExtends('group.join',$joinParams),
             ];
             Message::sendMsg($msg,1);
         }

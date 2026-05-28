@@ -161,12 +161,16 @@ class Im extends BaseController
             $setting['avatarCricle']= $setting['avatarCricle']=='true' ? true : false;
             $setting['isVoice']= $setting['isVoice']=='true' ? true : false;
             $setting['sendKey']=(int)$setting['sendKey'];
+        }else{
+            $setting=[];
         }
+        $setting['language']=User::getUserLanguage($userInfo['user_id'],$setting);
         $userInfo['setting']=$setting;
          Gateway::$registerAddress = config('gateway.registerAddress');
         //如果登录信息中含有client——id则自动进行绑定
         if($client_id){
             $user_id=$userInfo['user_id'];
+            User::getUserLanguage($user_id,$setting);
            
             // 如果当前ID在线，将其他地方登陆挤兑下线
             if(Gateway::isUidOnline($user_id)){
@@ -484,6 +488,7 @@ class Im extends BaseController
                 }
                 
                 $fromUser = $userList[$v['from_user']];
+                $content = Message::renderMessageContent($v,$content,$userInfo['user_id']);
                 // 处理撤回的消息
                 if ($v['type'] == "event" && $v['is_undo']==1) {
                     if ($v['from_user'] == $userInfo['user_id']) {
@@ -580,10 +585,37 @@ class Im extends BaseController
     {
         $param = $this->request->param();
         if ($param) {
+            $oldSetting=User::where(['user_id' => $this->userInfo['user_id']])->value('setting') ?: [];
+            if(is_string($oldSetting)){
+                $oldSetting=json_decode($oldSetting,true) ?: [];
+            }
+            if(isset($param['language'])){
+                $language=User::normalizeLanguage($param['language']);
+                if(!$language){
+                    return warning(lang('system.parameterError'));
+                }
+                $param['language']=$language;
+                Cache::set('user_language_'.$this->userInfo['user_id'],$language,7*86400);
+            }else{
+                $param['language']=User::normalizeLanguage($oldSetting['language'] ?? '') ?: User::getUserLanguage($this->userInfo['user_id'],$oldSetting);
+            }
             User::where(['user_id' => $this->userInfo['user_id']])->update(['setting' => $param]);
             return success('');
         }
         return warning('');
+    }
+
+    public function setLanguage()
+    {
+        $language=User::normalizeLanguage($this->request->param('language',''));
+        if(!$language){
+            return warning(lang('system.parameterError'));
+        }
+        $setting=User::setLanguage($this->userInfo['user_id'],$language);
+        if(!$setting){
+            return warning(lang('user.exist'));
+        }
+        return success('', ['language'=>$language,'setting'=>$setting]);
     }
 
     // 撤回消息
@@ -599,7 +631,8 @@ class Im extends BaseController
             if(time()-$createTime>$redoTime && $message['is_group']==0){
                 return warning(lang('im.redoLimitTime',['time'=>floor($redoTime/60)]));
             }
-            $text = lang('im.redo');
+            $redoKey='im.redo';
+            $text = Message::renderI18n($redoKey,[],$this->userInfo['user_id']);
             $fromUserName = lang('im.other');
             $toContactId = $message['to_user'];
             if ($message['is_group'] == 1) {
@@ -611,13 +644,15 @@ class Im extends BaseController
                     if(!$groupUser || !in_array($groupUser['role'],[1,2])){
                         return warning(lang('system.notAuth'));
                     }
-                    $text=lang('im.manageRedo');
+                    $redoKey='im.manageRedo';
+                    $text=Message::renderI18n($redoKey,[],$this->userInfo['user_id']);
                 }
             }
             $message->content = str_encipher($text);
             $message->search_content = Message::getSearchContent($text,'event');
             $message->type = 'event';
             $message->is_undo = 1;
+            $message->extends = Message::i18nExtends($redoKey);
             //@的数据清空
             $message->at = ''; 
             $message->save();
@@ -631,12 +666,21 @@ class Im extends BaseController
             $data['status'] = $info['status'];
             $data['type'] = 'event';
             $data['is_last'] = $info['is_last'];
+            $data['extends'] = Message::i18nExtends($redoKey);
             $data['toContactId'] = $message['is_group'] == 1 ? $info['chat_identify'] : $toContactId;
             $data['isMobile'] = $this->request->isMobile() ? 1 : 0;
-            wsSendMsg($toContactId, 'undoMessage', $data, $info['is_group']); 
-            if($info['is_group']==0){
-               // 给自己也发一份推送，多端同步
-                $data['content'] =lang('im.you'). $text;
+            if($info['is_group']==1){
+                $userIds=GroupUser::where(['group_id'=>$toContactId,'status'=>1])->column('user_id');
+                foreach($userIds as $userId){
+                    $sendData=$data;
+                    $sendData['content']=$fromUserName . Message::renderI18n($redoKey,[],$userId);
+                    wsSendMsg($userId, 'undoMessage', $sendData);
+                }
+            }else{
+                $data['content'] = Message::renderI18n('im.other',[],$toContactId) . Message::renderI18n($redoKey,[],$toContactId);
+                wsSendMsg($toContactId, 'undoMessage', $data, 0);
+                // 给自己也发一份推送，多端同步
+                $data['content'] =Message::renderI18n('im.you',[],$this->userInfo['user_id']). Message::renderI18n($redoKey,[],$this->userInfo['user_id']);
                 wsSendMsg($this->userInfo['user_id'], 'undoMessage', $data, $info['is_group']); 
             }
             return success('');

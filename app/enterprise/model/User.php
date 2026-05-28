@@ -11,6 +11,7 @@ use GatewayClient\Gateway;
 use app\BaseModel;
 use think\facade\Db;
 use think\facade\Request;
+use think\facade\Cache;
 use think\model\concern\SoftDelete;
 use app\manage\model\Config;
 use thans\jwt\facade\JWTAuth;
@@ -25,6 +26,81 @@ class User extends BaseModel
 
    protected $json = ['setting'];
    protected $jsonAssoc = true;
+
+   public static function normalizeLanguage($language)
+   {
+      if(!$language){
+         return '';
+      }
+      $language=explode(',',(string)$language)[0];
+      $language=Config::normalizeClientDefaultLang($language);
+      return $language;
+   }
+
+   public static function getClientDefaultLanguage($systemInfo=null)
+   {
+      if(!$systemInfo){
+         $systemInfo=Config::getSystemInfo();
+      }
+      return self::normalizeLanguage($systemInfo['sysInfo']['clientDefaultLang'] ?? '') ?: 'zh-cn';
+   }
+
+   public static function getRequestLanguage($request=null)
+   {
+      $request=$request ?: request();
+      $language=$request->param('language','') ?: $request->header('Accept-Language','');
+      return self::normalizeLanguage($language);
+   }
+
+   public static function getUserLanguage($user_id,$setting=null)
+   {
+      $user_id=(int)$user_id;
+      if(!$user_id){
+         return self::getClientDefaultLanguage();
+      }
+      $cacheKey='user_language_'.$user_id;
+      if(Cache::has($cacheKey)){
+         return self::normalizeLanguage(Cache::get($cacheKey)) ?: self::getClientDefaultLanguage();
+      }
+      if($setting===null){
+         $setting=self::where('user_id',$user_id)->value('setting');
+      }
+      if(is_string($setting)){
+         $setting=json_decode($setting,true) ?: [];
+      }
+      $language=self::normalizeLanguage($setting['language'] ?? '');
+      if($language){
+         Cache::set($cacheKey,$language,7*86400);
+         return $language;
+      }
+      return self::getClientDefaultLanguage();
+   }
+
+   public static function resolveLanguage($user_id=0,$request=null,$setting=null)
+   {
+      return self::getRequestLanguage($request) ?: self::getUserLanguage($user_id,$setting);
+   }
+
+   public static function setLanguage($user_id,$language)
+   {
+      $language=self::normalizeLanguage($language);
+      if(!$language){
+         return false;
+      }
+      $user=self::where('user_id',$user_id)->find();
+      if(!$user){
+         return false;
+      }
+      $setting=$user['setting'] ?: [];
+      if(is_string($setting)){
+         $setting=json_decode($setting,true) ?: [];
+      }
+      $setting['language']=$language;
+      $user->setting=$setting;
+      $user->save();
+      Cache::set('user_language_'.$user_id,$language,7*86400);
+      return $setting;
+   }
 
    // 系统人员或者其他静态人员
    public static function staticUser(){
@@ -156,7 +232,7 @@ class User extends BaseModel
       // 查询最近的联系人
       $map1 = [['to_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
       $map2 = [['from_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
-      $msgField = 'from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user';
+      $msgField = 'from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user,extends';
       $lasMsgList = Db::name('message')
          ->field($msgField)
          ->whereOr([$map1, $map2])
@@ -192,7 +268,8 @@ class User extends BaseModel
                foreach ($getGroupLastMsg as $key=>$val) {
                   if ($val['to_user'] == $v['group_id']) {
                      $group[$k]['type'] =$val['type'];
-                     $group[$k]['lastContent'] = str_encipher($val['lastContent'],false);
+                     $content = str_encipher($val['lastContent'],false);
+                     $group[$k]['lastContent'] = Message::renderMessageContent($val,$content,$user_id);
                      $group[$k]['lastSendTime'] = $val['lastSendTime'] * 1000;
                      // 已经赋值了删除掉提升下次循环的性能
                      unset($getGroupLastMsg[$key]);
@@ -263,6 +340,7 @@ class User extends BaseModel
             foreach ($lasMsgList as $val) {
                if ($val['from_user'] == $v['user_id'] || $val['to_user'] == $v['user_id']) {
                   $content = str_encipher($val['lastContent'],false);
+                  $content = Message::renderMessageContent($val,$content,$user_id);
                   // 屏蔽已删除的消息
                   if ($val['del_user']) {
                      $delUser = explode(',', $val['del_user']);
@@ -306,7 +384,7 @@ class User extends BaseModel
       // 查询最近的联系人
       $map1 = [['to_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
       $map2 = [['from_user', '=', $user_id], ['is_last', '=', 1], ['is_group', '=', 0]];
-      $msgField = 'msg_id,from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user';
+      $msgField = 'msg_id,from_user,to_user,content as lastContent,create_time as lastSendTime,chat_identify,type,del_user,extends';
       $lasMsgList = Db::name('message')
          ->field($msgField)
          ->whereOr([$map1, $map2])
@@ -426,7 +504,8 @@ class User extends BaseModel
          $val['lastFromUser'] = [];
          if($groupVal){
             $val['type'] =$groupVal['type'];
-            $val['lastContent'] = str_encipher($groupVal['lastContent'],false);
+            $content = str_encipher($groupVal['lastContent'],false);
+            $val['lastContent'] = Message::renderMessageContent($groupVal,$content,$user_id);
             $val['lastSendTime'] = $groupVal['lastSendTime'] * 1000;
             $fromUserId = (int)($groupVal['from_user'] ?? 0);
             $val['lastIsSelf'] = $fromUserId && $fromUserId == $user_id ? 1 : 0;
@@ -506,6 +585,7 @@ class User extends BaseModel
             }
             if($lastMsgVal){
                $content = str_encipher($lastMsgVal['lastContent'],false);
+               $content = Message::renderMessageContent($lastMsgVal,$content,$user_id);
                $list_chart[$k]['type'] = $lastMsgVal['type'];
                $list_chart[$k]['lastContent'] = $content;
                $list_chart[$k]['lastSendTime'] = $lastMsgVal['lastSendTime'] * 1000;

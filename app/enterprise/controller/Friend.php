@@ -4,7 +4,7 @@ namespace app\enterprise\controller;
 
 use app\BaseController;
 
-use app\enterprise\model\{Friend as FriendModel,User};
+use app\enterprise\model\{Friend as FriendModel,User,Message};
 
 class Friend extends BaseController
 {
@@ -96,18 +96,19 @@ class Friend extends BaseController
         $msg=[
             'fromUser'=>[
                 'id'=>'system',
-                'displayName'=>lang('friend.new'),
+                'displayName'=>Message::renderI18n('friend.new',[],$user_id),
                 'avatar'=>'',
             ],
             'toContactId'=>'system',
             'id'=>uniqid(),
             'is_group'=>2,
-            'content'=>lang('friend.apply'),
+            'content'=>Message::renderI18n('friend.apply',[],$user_id),
             'status'=>'succeed',
             'sendTime'=>time()*1000,
             'type'=>'event',
             'fileSize'=>0,
             'fileName'=>'',
+            'extends'=>Message::i18nExtends('friend.apply'),
         ];
         // 发送好友申请
         wsSendMsg($user_id,'simple',$msg);
@@ -142,14 +143,13 @@ class Friend extends BaseController
                 $data['status']=1;
                 FriendModel::create($data);
             }
-            $content=lang('friend.newChat');
             $userM=new User;
             // 将对方的信息发送给我，把我的信息发送对方
-            $user=$userM->setContact($friend->create_user,0,'event',$content);
+            $user=$userM->setContact($friend->create_user,0,'event',Message::renderI18n('friend.newChat',[],$this->uid));
             if($user){
                 wsSendMsg($this->uid,'appendContact',$user);
             }
-            $myInfo=$userM->setContact($this->uid,0,'event',$content);
+            $myInfo=$userM->setContact($this->uid,0,'event',Message::renderI18n('friend.newChat',[],$friend->create_user));
             if($myInfo){
                 wsSendMsg($friend->create_user,'appendContact',$myInfo);
             }

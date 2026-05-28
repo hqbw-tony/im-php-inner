@@ -163,13 +163,14 @@ class Group extends BaseController
                }
             }
             if($joinNames){
+               $inviteJoinParams=['inviter'=>$this->userInfo['realname'],'username'=>implode('、',$joinNames)];
                $fromUser=$this->userInfo;
                $fromUser['id']=$uid;
                $fromUser['avatar']=avatarUrl($fromUser['avatar'],$fromUser['realname'],$uid);
                $msg=[
                   'id'=>Str::getUuid(),
                   'user_id'=>$uid,
-                  'content'=>lang('group.inviteJoin',['inviter'=>$this->userInfo['realname'],'username'=>implode('、',$joinNames)]),
+                  'content'=>Message::renderI18n('group.inviteJoin',$inviteJoinParams,$uid),
                   'toContactId'=>'group-'.$group_id,
                   'sendTime'=>time()*1000,
                   'type'=>'event',
@@ -177,15 +178,21 @@ class Group extends BaseController
                   'status'=>'succeed',
                   'fromUser'=>$fromUser,
                   'at'=>[],
+                  'extends'=>Message::i18nExtends('group.inviteJoin',$inviteJoinParams),
                ];
                Message::sendMsg($msg,1);
             }
          }
          // 给新成员添加新群聊信息
          $user=new User();
-         $data=$user->setContact($group_id,1,'text',lang('group.invite',['username'=>$this->userInfo['realname']]),$groupInfo);
+         $inviteParams=['username'=>$this->userInfo['realname']];
+         $data=$user->setContact($group_id,1,'text',Message::renderI18n('group.invite',$inviteParams,$uid),$groupInfo);
          queuePush(['action'=>'createAvatar','group_id'=>$group_id]);
-         wsSendMsg($user_ids, 'addGroup', $data);
+         foreach(array_values(array_unique($user_ids)) as $toUserId){
+            $sendData=$data;
+            $sendData['lastContent']=Message::renderI18n('group.invite',$inviteParams,$toUserId);
+            wsSendMsg($toUserId, 'addGroup', $sendData);
+         }
          return success(lang('system.addOk'));
       }catch(Exception $e){
          return error($e->getMessage());
@@ -278,7 +285,8 @@ class Group extends BaseController
             }
             $groupUser=new GroupUser();
             $groupUser->saveAll($data);
-            $createGroupContent=lang('group.add',['username'=>$this->userInfo['realname']]);
+            $createGroupParams=['username'=>$this->userInfo['realname']];
+            $createGroupContent=Message::renderI18n('group.add',$createGroupParams,$uid);
             $groupInfo=[
                'displayName'=>$create['name'],
                'owner_id'=>$create['owner_id'],
@@ -300,12 +308,17 @@ class Group extends BaseController
                'content'=>str_encipher($createGroupContent),
                'search_content'=>Message::getSearchContent($createGroupContent,'event'),
                'type'=>'event',
+               'extends'=>Message::i18nExtends('group.add',$createGroupParams),
                'is_group'=>1,
                'is_read'=>1,
                'is_last'=>1,
                'chat_identify'=>'group-'.$group_id
             ]);
-            wsSendMsg($user_ids, 'addGroup', $groupInfo);
+            foreach($user_ids as $toUserId){
+               $sendInfo=$groupInfo;
+               $sendInfo['lastContent']=Message::renderI18n('group.add',$createGroupParams,$toUserId);
+               wsSendMsg($toUserId, 'addGroup', $sendInfo);
+            }
             Db::commit();
             $groupInfo['role']=1;
             queuePush(['action'=>'createAvatar','group_id'=>$group_id]);

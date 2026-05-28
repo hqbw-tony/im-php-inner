@@ -93,8 +93,11 @@ class Pub
             $setting['avatarCricle']= $setting['avatarCricle']=='true' ? true : false;
             $setting['isVoice']= $setting['isVoice']=='true' ? true : false;
             $setting['sendKey']=(int)$setting['sendKey'];
-            $userInfo['setting']=$setting;
+        }else{
+            $setting=[];
         }
+        $setting['language']=User::getUserLanguage($userInfo['user_id'],$setting);
+        $userInfo['setting']=$setting;
         //如果登录信息中含有client——id则自动进行绑定
         $client_id=$this->request->param('client_id');
         if($client_id){
@@ -245,6 +248,7 @@ class Pub
 
     // 执行绑定
     public function doBindUid($user_id,$client_id,$cid=''){
+        User::getUserLanguage($user_id);
         // 如果当前ID在线，将其他地方登陆挤兑下线
         if(Gateway::isUidOnline($user_id)){
             wsSendMsg($user_id,'offline',['id'=>$user_id,'client_id'=>$client_id,'isMobile'=>$this->request->isMobile()]);

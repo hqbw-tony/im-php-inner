@@ -11,6 +11,26 @@ class Config extends BaseModel
 {
     protected $json = ['value'];
     protected $jsonAssoc = true;
+    protected static $clientLangList=['zh-cn','en-us','ja','ko'];
+
+    public static function normalizeClientDefaultLang($language)
+    {
+        $language=strtolower(str_replace('_','-',trim((string)$language)));
+        $map=[
+            'zh'=>'zh-cn',
+            'zh-hans'=>'zh-cn',
+            'zh-cn'=>'zh-cn',
+            'cn'=>'zh-cn',
+            'en'=>'en-us',
+            'en-us'=>'en-us',
+            'ja'=>'ja',
+            'jp'=>'ja',
+            'ko'=>'ko',
+            'kr'=>'ko',
+        ];
+        $language=$map[$language] ?? $language;
+        return in_array($language,self::$clientLangList,true) ? $language : '';
+    }
 
     // 获取系统配置信息
     public static function getSystemInfo($update=false){
@@ -38,7 +58,13 @@ class Config extends BaseModel
                 }
                 $systemInfo[$v['name']]=$value;
             }
+            if(isset($systemInfo['sysInfo'])){
+                $systemInfo['sysInfo']['clientDefaultLang']=self::normalizeClientDefaultLang($systemInfo['sysInfo']['clientDefaultLang'] ?? '') ?: 'zh-cn';
+            }
             Cache::set($name,$systemInfo,7*86400);
+        }
+        if(isset($systemInfo['sysInfo'])){
+            $systemInfo['sysInfo']['clientDefaultLang']=self::normalizeClientDefaultLang($systemInfo['sysInfo']['clientDefaultLang'] ?? '') ?: 'zh-cn';
         }
         return $systemInfo;
     }
