@@ -30,6 +30,10 @@ return [
         'announce'=>"{:num}条公告",
         'transFile'=>"传输你的文件"
     ],
+    'ipLocation'=>[
+        'unknown'=>'未知',
+        'IPv6'=>'IPv6',
+    ],
     'messageType'=>[
         'other'=>"[暂不支持的消息类型]",
         'image'=>'[图片]',

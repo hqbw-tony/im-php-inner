@@ -136,7 +136,7 @@ class Im extends BaseController
         $user->friend=$friend ? : '';
         $location='';
         if($user->last_login_ip){
-            $location=implode(" ", \Ip::find($user->last_login_ip));
+            $location=User::formatIpLocation($user->last_login_ip,$this->userInfo['user_id']);
         }
         $user->location=$location;
         $user->groupInfo=$groupInfo ? : [];
