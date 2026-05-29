@@ -123,6 +123,34 @@ class User extends BaseModel
       return self::getRequestLanguage($request) ?: self::getUserLanguage($user_id,$setting);
    }
 
+   public static function formatIpLocation($ip,$user_id=0,$language='')
+   {
+      if(!$ip){
+         return self::renderIpLocationPart('unknown',$user_id,$language);
+      }
+      $list=\Ip::find($ip);
+      if(!$list || !is_array($list)){
+         return self::renderIpLocationPart('unknown',$user_id,$language);
+      }
+      $location=[];
+      foreach($list as $item){
+         $item=trim((string)$item);
+         if($item==='' || strtoupper($item)==='N/A'){
+            continue;
+         }
+         $location[]=self::renderIpLocationPart($item,$user_id,$language);
+      }
+      return $location ? implode(' ',$location) : self::renderIpLocationPart('unknown',$user_id,$language);
+   }
+
+   protected static function renderIpLocationPart($name,$user_id=0,$language='')
+   {
+      $language=self::normalizeLanguage($language) ?: self::getUserLanguage($user_id);
+      $key='ipLocation.'.$name;
+      $value=lang($key,[],$language);
+      return $value===$key ? $name : $value;
+   }
+
    public static function setLanguage($user_id,$language)
    {
       $language=self::normalizeLanguage($language);
@@ -354,7 +382,7 @@ class User extends BaseModel
          $list_chart[$k]['location'] ="";
          if($isRegion){
             $list_chart[$k]['last_login_ip'] = $v['last_login_ip'];
-            $list_chart[$k]['location'] =$v['last_login_ip'] ? implode(" ", \Ip::find($v['last_login_ip'])) : "未知";
+            $list_chart[$k]['location'] = self::formatIpLocation($v['last_login_ip'],$user_id);
          }
          $is_online=0;
          if(isset($onlineList[$v['user_id']])){
@@ -605,7 +633,7 @@ class User extends BaseModel
             $list_chart[$k]['location'] ="";
             if($isRegion){
                $list_chart[$k]['last_login_ip'] = $v['last_login_ip'];
-               $list_chart[$k]['location'] =$v['last_login_ip'] ? implode(" ", \Ip::find($v['last_login_ip'])) : "未知";
+               $list_chart[$k]['location'] = self::formatIpLocation($v['last_login_ip'],$user_id);
             }
             $list_chart[$k]['is_online'] = ($onlineList[$v['user_id']] ?? 0) ? 1 : 0;
             $is_top = 0;
@@ -831,7 +859,7 @@ class User extends BaseModel
          $friend= self::$userInfo ? Friend::where(['friend_user_id'=>$id,'create_user'=>self::$userInfo['user_id'],'status'=>1])->find() : [];
          $data['displayName'] = self::getFriendDisplayName($friend,$user['realname']);
          $data['avatar'] = avatarUrl($user['avatar'], $user['realname'], $user['user_id'], 120);
-         $data['location'] =$user['last_login_ip'] ? implode(" ", \Ip::find($user['last_login_ip'])) : "未知";
+         $data['location'] = self::formatIpLocation($user['last_login_ip'],self::$userInfo['user_id'] ?? 0);
          $data['name_py'] = $user['name_py'];
       }else{
          $group_id=is_numeric($id) ? $id : (explode('-',$id)[1] ?? 0);
