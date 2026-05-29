@@ -1,24 +1,9 @@
 <?php
 
-/*
-    全球 IPv4 地址归属地数据库(17MON.CN 版)
-    高春辉(pAUL gAO) <gaochunhui@gmail.com>
-    Build 20141009 版权所有 17MON.CN
-    (C) 2006 - 2014 保留所有权利
-    请注意及时更新 IP 数据库版本
-    数据问题请加 QQ 群: 346280296
-    Code for PHP 5.3+ only
-*/
-
 class Ip
 {
-    private static $ip     = NULL;
-
-    private static $fp     = NULL;
-    private static $offset = NULL;
-    private static $index  = NULL;
-
     private static $cached = array();
+    private static $countryNames = NULL;
 
     public static function find($ip)
     {
@@ -28,55 +13,26 @@ class Ip
             return self::emptyLocation();
         }
 
-        if (filter_var($nip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE)
-        {
-            return self::ipv6Location($nip);
-        }
-
-        $ipdot = explode('.', $nip);
-        if ($ipdot[0] < 0 || $ipdot[0] > 255 || count($ipdot) !== 4)
-        {
-            return self::emptyLocation();
-        }
-
         if (isset(self::$cached[$nip]) === TRUE)
         {
             return self::$cached[$nip];
         }
 
-        if (self::$fp === NULL)
+        if (filter_var($nip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE)
         {
-            self::init();
+            $location = self::findCountryByIpv6($nip);
+            self::$cached[$nip] = $location ? array($location) : array('IPv6');
+            return self::$cached[$nip];
         }
 
-        $nip2 = pack('N', ip2long($nip));
-
-        $tmp_offset = (int)$ipdot[0] * 4;
-        $start      = unpack('Vlen', self::$index[$tmp_offset] . self::$index[$tmp_offset + 1] . self::$index[$tmp_offset + 2] . self::$index[$tmp_offset + 3]);
-
-        $index_offset = $index_length = NULL;
-        $max_comp_len = self::$offset['len'] - 1024 - 4;
-        for ($start = $start['len'] * 8 + 1024; $start < $max_comp_len; $start += 8)
+        if (filter_var($nip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== FALSE)
         {
-            if (self::$index[$start] . self::$index[$start + 1] . self::$index[$start + 2] . self::$index[$start + 3] >= $nip2)
-            {
-                $index_offset = unpack('Vlen', self::$index[$start + 4] . self::$index[$start + 5] . self::$index[$start + 6] . "\x0");
-                $index_length = unpack('Clen', self::$index[$start + 7]);
-
-                break;
-            }
+            $location = self::findCountryByIpv4($nip);
+            self::$cached[$nip] = $location ? array($location) : self::emptyLocation();
+            return self::$cached[$nip];
         }
 
-        if ($index_offset === NULL)
-        {
-            return self::emptyLocation();
-        }
-
-        fseek(self::$fp, self::$offset['len'] + $index_offset['len'] - 1024);
-
-        self::$cached[$nip] = explode("\t", fread(self::$fp, $index_length['len']));
-
-        return self::$cached[$nip];
+        return self::emptyLocation();
     }
 
     private static function normalizeIp($ip)
@@ -125,44 +81,132 @@ class Ip
         return '';
     }
 
+    private static function findCountryByIpv4($ip)
+    {
+        $file = __DIR__ . '/ip/dbip_country_lite_v4.dat';
+        $ipNum = (int)sprintf('%u', ip2long($ip));
+        return self::binarySearch($file, 'DBIP4EN1', 10, function ($record) use ($ipNum) {
+            $range = unpack('Nstart/Nend', substr($record, 0, 8));
+            if ($ipNum < $range['start'])
+            {
+                return -1;
+            }
+            if ($ipNum > $range['end'])
+            {
+                return 1;
+            }
+            return substr($record, 8, 2);
+        });
+    }
+
+    private static function findCountryByIpv6($ip)
+    {
+        $file = __DIR__ . '/ip/dbip_country_lite_v6.dat';
+        $ipBin = inet_pton($ip);
+        if ($ipBin === FALSE)
+        {
+            return '';
+        }
+
+        return self::binarySearch($file, 'DBIP6EN1', 34, function ($record) use ($ipBin) {
+            $start = substr($record, 0, 16);
+            $end = substr($record, 16, 16);
+            if (strcmp($ipBin, $start) < 0)
+            {
+                return -1;
+            }
+            if (strcmp($ipBin, $end) > 0)
+            {
+                return 1;
+            }
+            return substr($record, 32, 2);
+        });
+    }
+
+    private static function binarySearch($file, $magic, $recordSize, $matcher)
+    {
+        if (is_file($file) === FALSE || is_readable($file) === FALSE)
+        {
+            return '';
+        }
+
+        $fp = fopen($file, 'rb');
+        if ($fp === FALSE)
+        {
+            return '';
+        }
+
+        $header = fread($fp, 12);
+        if (strlen($header) !== 12 || substr($header, 0, 8) !== $magic)
+        {
+            fclose($fp);
+            return '';
+        }
+
+        $count = unpack('Ncount', substr($header, 8, 4));
+        $left = 0;
+        $right = (int)$count['count'] - 1;
+        while ($left <= $right)
+        {
+            $mid = (int)floor(($left + $right) / 2);
+            fseek($fp, 12 + $mid * $recordSize);
+            $record = fread($fp, $recordSize);
+            if (strlen($record) !== $recordSize)
+            {
+                break;
+            }
+
+            $result = $matcher($record);
+            if ($result === -1)
+            {
+                $right = $mid - 1;
+            }
+            elseif ($result === 1)
+            {
+                $left = $mid + 1;
+            }
+            else
+            {
+                fclose($fp);
+                return self::countryName($result);
+            }
+        }
+
+        fclose($fp);
+        return '';
+    }
+
+    private static function countryName($code)
+    {
+        $code = strtoupper(trim((string)$code));
+        if ($code === '' || $code === 'ZZ')
+        {
+            return '';
+        }
+
+        $countryNames = self::countryNames();
+        return $countryNames[$code] ?? $code;
+    }
+
+    private static function countryNames()
+    {
+        if (self::$countryNames !== NULL)
+        {
+            return self::$countryNames;
+        }
+
+        $file = __DIR__ . '/ip/country_names_en.php';
+        self::$countryNames = is_file($file) ? (include $file) : array();
+        if (!is_array(self::$countryNames))
+        {
+            self::$countryNames = array();
+        }
+        return self::$countryNames;
+    }
+
     private static function emptyLocation()
     {
         return array('N/A');
-    }
-
-    private static function ipv6Location($ip)
-    {
-        return array('IPv6');
-    }
-
-    private static function init()
-    {
-        if (self::$fp === NULL)
-        {
-            self::$ip = new self();
-
-            self::$fp = fopen(__DIR__ . '/ip/17monipdb.dat', 'rb');
-            if (self::$fp === FALSE)
-            {
-                throw new Exception('Invalid 17monipdb.dat file!');
-            }
-
-            self::$offset = unpack('Nlen', fread(self::$fp, 4));
-            if (self::$offset['len'] < 4)
-            {
-                throw new Exception('Invalid 17monipdb.dat file!');
-            }
-
-            self::$index = fread(self::$fp, self::$offset['len'] - 4);
-        }
-    }
-
-    public function __destruct()
-    {
-        if (self::$fp !== NULL)
-        {
-            fclose(self::$fp);
-        }
     }
 }
 

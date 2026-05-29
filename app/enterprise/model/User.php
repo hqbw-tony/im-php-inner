@@ -126,11 +126,11 @@ class User extends BaseModel
    public static function formatIpLocation($ip,$user_id=0,$language='')
    {
       if(!$ip){
-         return self::renderIpLocationPart('unknown',$user_id,$language);
+         return 'Unknown';
       }
       $list=\Ip::find($ip);
       if(!$list || !is_array($list)){
-         return self::renderIpLocationPart('unknown',$user_id,$language);
+         return 'Unknown';
       }
       $location=[];
       foreach($list as $item){
@@ -138,17 +138,9 @@ class User extends BaseModel
          if($item==='' || strtoupper($item)==='N/A'){
             continue;
          }
-         $location[]=self::renderIpLocationPart($item,$user_id,$language);
+         $location[]=$item;
       }
-      return $location ? implode(' ',$location) : self::renderIpLocationPart('unknown',$user_id,$language);
-   }
-
-   protected static function renderIpLocationPart($name,$user_id=0,$language='')
-   {
-      $language=self::normalizeLanguage($language) ?: self::getUserLanguage($user_id);
-      $key='ipLocation.'.$name;
-      $value=lang($key,[],$language);
-      return $value===$key ? $name : $value;
+      return $location ? implode(' ',$location) : 'Unknown';
    }
 
    public static function setLanguage($user_id,$language)
