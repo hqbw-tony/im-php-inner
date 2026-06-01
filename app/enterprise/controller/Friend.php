@@ -78,7 +78,6 @@ class Friend extends BaseController
                     'remark'=>$param['remark'] ?? '',
                     'is_invite'=>1,
                     'apply_time'=>$applyTime,
-                    'create_time'=>$friend ? $friend->create_time : $applyTime,
                 ]);
                 $this->pushAcceptedContacts($this->uid,$user_id);
                 return success(lang('system.addOk'));
