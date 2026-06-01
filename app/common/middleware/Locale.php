@@ -10,7 +10,7 @@ class Locale
     public function handle($request, \Closure $next)
     {
         $lang=User::getRequestLanguage($request) ?: User::getClientDefaultLanguage();
-        Lang::setLangSet($lang);
+        Lang::switchLangSet($lang);
         return $next($request);
     }
 }

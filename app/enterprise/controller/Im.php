@@ -821,6 +821,11 @@ class Im extends BaseController
         $toContactId=$param['toContactId'] ?? '';
         $type=$param['type'] ?? '';
         if($event=='calling'){
+            $messageModel=new Message();
+            $requireFriend=(int)($this->globalConfig['sysInfo']['runMode'] ?? 0)===2;
+            if(!$messageModel->validatePrivateChatTarget($toContactId,$this->uid,$this->globalConfig,$requireFriend)){
+                return warning($messageModel->getError());
+            }
             $status=3;
             $code=($param['code'] ?? '') ?: 901;
         }else{

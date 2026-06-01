@@ -47,7 +47,7 @@ class CheckAuth
         }
         //已经登陆，将用户信息存入请求头
         $uid=$userInfo['user_id'] ?? ($userInfo['id'] ?? 0);
-        Lang::setLangSet(User::resolveLanguage($uid,$request));
+        Lang::switchLangSet(User::resolveLanguage($uid,$request));
         $request->userInfo  = $userInfo;
         $request->uid       = $uid;
         $request->userToken = JWTAuth::token()->get();

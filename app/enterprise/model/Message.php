@@ -373,35 +373,9 @@ class Message extends BaseModel
         $chatSetting = $globalConfig['chatInfo'];
         if($param['toContactId']!=-1){
             if ($is_group == 0) {
-                $kefuUser=$chatSetting['autoAddUser']['user_ids'] ?? [];
-                $manageUser=User::where([['status','=',1],['role','>',0]])->column('user_id');
-                $kefu=array_unique(array_merge($kefuUser,$manageUser));
-                $csUid = self::$userInfo['cs_uid'] ?? 0;
-                $manage=false;
-                // 发送者和接受者是客服或者管理员也可以发送消息
-                if(in_array($uid,$kefu) || in_array($param['toContactId'],$kefu)){
-                    $manage=true;
-                }
-                if($chatSetting['simpleChat'] == 0 && !$manage){
-                    $this->error=lang('im.forbidChat');
+                $requireFriend=(int)($globalConfig['sysInfo']['runMode'] ?? 0)===2;
+                if(!$this->validatePrivateChatTarget($param['toContactId'],$uid,$globalConfig,$requireFriend)){
                     return false;
-                }
-                // 如果是单聊，并且是社区模式和不是自己的客服、需要判断是否是好友
-                if ($globalConfig['sysInfo']['runMode'] == 2 && $csUid != $param['toContactId'] && !$manage) {
-                    // 判断我是不是对方的客服
-                    $cus = User::where(['user_id' => $param['toContactId']])->value('cs_uid');
-                    if ($cus != $uid) {
-                        $friend = Friend::where(['friend_user_id' => $uid, 'create_user' => $param['toContactId'], 'status' => 1])->find();
-                        if (!$friend) {
-                            $this->error=lang('im.notFriend');
-                            return false;
-                        }
-                        $otherFriend = Friend::where(['friend_user_id' => $param['toContactId'], 'create_user' => $uid, 'status' => 1])->find();
-                        if (!$otherFriend) {
-                            $this->error=lang('im.friendNot');
-                            return false;
-                        }
-                    }
                 }
             }else{
                 // 群聊必须群成员才能发送消息
@@ -466,14 +440,14 @@ class Message extends BaseModel
                 $this->error=lang('system.parameterError');
                 return false;
             }
-            if(!$this->checkSimpleForwardTarget($toContactId,$uid,$userInfo,$globalConfig)){
+            if(!$this->validatePrivateChatTarget($toContactId,$uid,$globalConfig)){
                 return false;
             }
         }
         return true;
     }
 
-    protected function checkSimpleForwardTarget($toContactId,$uid,$userInfo,$globalConfig)
+    public function validatePrivateChatTarget($toContactId,$uid,$globalConfig,$requireFriend=true)
     {
         $chatSetting=$globalConfig['chatInfo'] ?? [];
         $kefuUser=$chatSetting['autoAddUser']['user_ids'] ?? [];
@@ -486,6 +460,9 @@ class Message extends BaseModel
         if(($chatSetting['simpleChat'] ?? 1) == 0 && !$manage){
             $this->error=lang('im.forbidChat');
             return false;
+        }
+        if(!$requireFriend){
+            return true;
         }
         $friend=Friend::where(['friend_user_id'=>$toContactId,'create_user'=>$uid,'status'=>1])->find();
         if(!$friend){
