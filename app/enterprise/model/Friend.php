@@ -44,5 +44,36 @@ class Friend extends BaseModel
        $createTime=(int)($info['create_time'] ?? 0);
        return $applyTime ?: $createTime;
     }
+
+    public static function acceptPair($create_user,$friend_user_id,$time=0,$createUserData=[],$friendUserData=[])
+    {
+       $time=$time ?: time();
+       self::saveRelation($create_user,$friend_user_id,array_merge([
+          'status'=>1,
+          'update_time'=>$time,
+       ],$createUserData));
+       self::saveRelation($friend_user_id,$create_user,array_merge([
+          'status'=>1,
+          'update_time'=>$time,
+       ],$friendUserData));
+    }
+
+    public static function saveRelation($create_user,$friend_user_id,$data=[])
+    {
+       $map=[
+          'create_user'=>$create_user,
+          'friend_user_id'=>$friend_user_id,
+       ];
+       $relation=self::where($map)->find();
+       $data=array_merge($map,$data);
+       if($relation){
+          $relation->save($data);
+          return $relation;
+       }
+       if(!isset($data['create_time'])){
+          $data['create_time']=time();
+       }
+       return self::create($data);
+    }
    
 }

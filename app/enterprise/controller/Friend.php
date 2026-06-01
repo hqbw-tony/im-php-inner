@@ -73,7 +73,15 @@ class Friend extends BaseController
                 return warning(lang('friend.refuse'));
             }
             if($otherFriend->status>0){
-                $status=1;
+                $applyTime=time();
+                FriendModel::acceptPair($this->uid,$user_id,$applyTime,[
+                    'remark'=>$param['remark'] ?? '',
+                    'is_invite'=>1,
+                    'apply_time'=>$applyTime,
+                    'create_time'=>$friend ? $friend->create_time : $applyTime,
+                ]);
+                $this->pushAcceptedContacts($this->uid,$user_id);
+                return success(lang('system.addOk'));
             }
         }
         $applyTime=time();
@@ -81,7 +89,7 @@ class Friend extends BaseController
             'friend_user_id'=>$user_id,
             'status'=>$status,
             'create_user'=>$this->uid,
-            'remark'=>$param['remark'],
+            'remark'=>$param['remark'] ?? '',
             'is_invite'=>1, // 是否为发起方
             'apply_time'=>$applyTime,
             'update_time'=>$applyTime
@@ -123,39 +131,35 @@ class Friend extends BaseController
         if(!$friend){
             return warning(lang('friend.notApply'));
         }
-        $map=[
-            'friend_id'=>$param['friend_id']
-        ];
-        FriendModel::where($map)->update(['status'=>$param['status']]);
+        if((int)$friend->friend_user_id !== (int)$this->uid){
+            return warning(lang('system.notAuth'));
+        }
         // 如果是接收，就添加到好友列表
-        if($param['status']){
-            $data=[
-                'friend_user_id'=>$friend->create_user,
-                'create_user'=>$this->uid,
-            ];
-            $newFriend=FriendModel::where($data)->find();
-            if($newFriend){
-                if($newFriend->status==1){
-                    return success(lang('friend.already'));
-                }
-                FriendModel::where($data)->update(['status'=>1]);
-            }else{
-                $data['status']=1;
-                FriendModel::create($data);
+        if((int)$param['status'] === 1){
+            $reverseFriend=FriendModel::where(['create_user'=>$this->uid,'friend_user_id'=>$friend->create_user])->find();
+            if((int)$friend->status === 1 && $reverseFriend && (int)$reverseFriend->status === 1){
+                return success(lang('friend.already'));
             }
-            $userM=new User;
-            // 将对方的信息发送给我，把我的信息发送对方
-            $user=$userM->setContact($friend->create_user,0,'event',Message::renderI18n('friend.newChat',[],$this->uid));
-            if($user){
-                wsSendMsg($this->uid,'appendContact',$user);
-            }
-            $myInfo=$userM->setContact($this->uid,0,'event',Message::renderI18n('friend.newChat',[],$friend->create_user));
-            if($myInfo){
-                wsSendMsg($friend->create_user,'appendContact',$myInfo);
-            }
-            
+            FriendModel::acceptPair($friend->create_user,$this->uid,time());
+            $this->pushAcceptedContacts($this->uid,$friend->create_user);
+        }else{
+            FriendModel::where(['friend_id'=>$param['friend_id']])->update(['status'=>$param['status'],'update_time'=>time()]);
         }
         return success(lang('system.success'));
+    }
+
+    protected function pushAcceptedContacts($uid,$friendUserId)
+    {
+        $userM=new User;
+        // 将对方的信息发送给我，把我的信息发送对方
+        $user=$userM->setContact($friendUserId,0,'event',Message::renderI18n('friend.newChat',[],$uid));
+        if($user){
+            wsSendMsg($uid,'appendContact',$user);
+        }
+        $myInfo=$userM->setContact($uid,0,'event',Message::renderI18n('friend.newChat',[],$friendUserId));
+        if($myInfo){
+            wsSendMsg($friendUserId,'appendContact',$myInfo);
+        }
     }
 
 
