@@ -20,7 +20,35 @@ class GroupChange
                 wsSendMsg([$groupInfo['owner_uid']], 'addGroup', $groupInfo);
             }
         }elseif($data['action'] == 'editGroupName'){
-            return;
+            $uid=(int)($groupInfo['editUserId'] ?? 0);
+            $groupName=trim((string)($groupInfo['displayName'] ?? ''));
+            if(!$uid || $groupName===''){
+                return true;
+            }
+            $userInfo=$user->field('user_id,realname,avatar')->where(['user_id'=>$uid])->find();
+            if(!$userInfo){
+                return true;
+            }
+            $userInfo=$userInfo->toArray();
+            $userInfo['id']=$userInfo['user_id'];
+            $userInfo['avatar']=avatarUrl($userInfo['avatar'],$userInfo['realname'],$userInfo['user_id']);
+            $editNameParams=['username'=>$userInfo['realname'],'groupName'=>$groupName];
+            $msg=[
+                'id'=>\utils\Str::getUuid(),
+                'user_id'=>$uid,
+                'content'=>Message::renderI18n('group.editName',$editNameParams,$uid),
+                'toContactId'=>'group-'.$data['group_id'],
+                'sendTime'=>time()*1000,
+                'type'=>'event',
+                'is_group'=>1,
+                'status'=>'succeed',
+                'fromUser'=>$userInfo,
+                'at'=>[],
+                'action'=>$data['action'],
+                'extends'=>Message::i18nExtends('group.editName',$editNameParams),
+            ];
+            Message::sendMsg($msg,1);
+            return true;
         }
         $uid=$groupInfo['owner_uid'] ?? 1;
         $userInfo=$user->field('user_id,realname,avatar')->where(['user_id'=>$uid])->find();

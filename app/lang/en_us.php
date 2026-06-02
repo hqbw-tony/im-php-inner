@@ -64,6 +64,7 @@ return [
         'add' => "{:username} has created a group chat",  
         'join'=>"{:username} join the group chat",
         'inviteJoin'=>"{:inviter} invited {:username} to join the group chat",
+        'editName'=>"{:username} changed the group name to {:groupName}",
         'atLeast' => "Please select at least two people!",  
         'alreadyJoin' => "You are already in this group!",  
         'exist' => "The group chat does not exist",

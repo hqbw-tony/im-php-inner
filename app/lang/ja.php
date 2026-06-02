@@ -63,6 +63,7 @@ return [
         'add' => '{:username} がグループチャットを作成しました',
         'join' => '{:username} がグループチャットに参加しました',
         'inviteJoin' => '{:inviter} が {:username} をグループチャットに招待しました',
+        'editName' => '{:username} がグループ名を {:groupName} に変更しました',
         'atLeast' => '少なくとも2人選択してください！',
         'alreadyJoin' => 'すでにこのグループに参加しています！',
         'exist' => 'グループチャットが存在しません',

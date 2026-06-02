@@ -63,6 +63,7 @@ return [
         'add' => '{:username}님이 그룹 채팅을 만들었습니다',
         'join' => '{:username}님이 그룹 채팅에 참여했습니다',
         'inviteJoin' => '{:inviter}님이 {:username}님을 그룹 채팅에 초대했습니다',
+        'editName' => '{:username}님이 그룹 이름을 {:groupName}(으)로 변경했습니다',
         'atLeast' => '최소 두 명을 선택해 주세요!',
         'alreadyJoin' => '이미 이 그룹에 참여 중입니다!',
         'exist' => '그룹 채팅이 존재하지 않습니다',

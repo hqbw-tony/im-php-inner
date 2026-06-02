@@ -101,11 +101,26 @@ class Group extends BaseController
    {
       $param = $this->request->param();
       $group_id = explode('-', $param['id'])[1];
+      $displayName=trim((string)($param['displayName'] ?? ''));
+      if($displayName===''){
+         return warning(lang('system.notNull'));
+      }
       if(!GroupUser::canEditGroupInfo($group_id,$this->userInfo['user_id'])){
          return warning(lang('group.notAuth'));
       }
-      GroupModel::where(['group_id' => $group_id])->update(['name' => $param['displayName'],'name_py'=>pinyin_sentence($param['displayName'])]);
+      $group=GroupModel::where(['group_id' => $group_id])->find();
+      if(!$group){
+         return warning(lang('group.exist'));
+      }
+      $oldName=(string)$group['name'];
+      if($oldName===$displayName){
+         return success(lang('system.editOk'));
+      }
+      GroupModel::where(['group_id' => $group_id])->update(['name' => $displayName,'name_py'=>pinyin_sentence($displayName)]);
+      $param['displayName'] = $displayName;
+      $param['oldDisplayName'] = $oldName;
       $param['editUserName'] = $this->userInfo['realname'];
+      $param['editUserId'] = $this->uid;
       $action='editGroupName';
       event('GroupChange', ['action' => $action, 'group_id' => $group_id, 'param' => $param]);
       wsSendMsg($group_id, $action, $param, 1);
