@@ -659,18 +659,29 @@ class User extends BaseModel
 
    // 获取机器人聊天消息
    public static function otherChat($uid){
+      $toTimestamp=function($time){
+         if($time instanceof \DateTimeInterface){
+            return $time->getTimestamp();
+         }
+         if(is_numeric($time)){
+            return (int)$time;
+         }
+         if(is_string($time) && $time !== ''){
+            return strtotime($time) ?: 0;
+         }
+         return 0;
+      };
       $staticList=self::staticUser();
       $adminNotice=$staticList['adminNotice'];
       $fileTransfer=$staticList['fileTransfer'];
       $count=Message::where(['chat_identify'=>$adminNotice['id']])->count();
       $createTime=Message::where(['chat_identify'=>$adminNotice['id']])->order('id desc')->value('create_time');
-      $sendTime=0;
-      if($createTime){
-         $sendTime=is_string($createTime) ? strtotime($createTime) : $createTime;
-      }
+      $sendTime=$toTimestamp($createTime);
       $chat_identify=chat_identify($uid,$fileTransfer['id']);
       $fileLast=Message::where(['is_last'=>1,'chat_identify'=>$chat_identify])->find();
       $fileSendTime=$fileLast['create_time'] ?? '';
+      $fileSendTime=$toTimestamp($fileSendTime);
+      $userCreateTime=$toTimestamp(self::where('user_id',$uid)->value('create_time'));
       $content =$fileLast['content'] ?? '';
       $friend=Friend::where(['create_user'=>$uid,'friend_user_id'=>$fileTransfer['id']])->find();
       $notice=[
@@ -701,7 +712,7 @@ class User extends BaseModel
                'avatar'=>$fileTransfer['avatar'],
                'lastContent'=> str_encipher($content,false) ?: lang('system.transFile'),
                'unread'=>0,
-               'lastSendTime'=>((is_string($fileSendTime) ? strtotime($fileSendTime) : $fileSendTime) * 1000) ?: time() * 1000,
+               'lastSendTime'=>($fileSendTime ?: $userCreateTime) * 1000,
                'is_group'=>3,
                'setting'=>[],
                'type'=>$fileLast['type'] ?? 'text',
