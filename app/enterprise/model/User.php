@@ -48,7 +48,10 @@ class User extends BaseModel
    public static function getRequestLanguage($request=null)
    {
       $request=$request ?: request();
-      $language=$request->param('language','') ?: $request->header('Accept-Language','');
+      $language=$request->param('language','')
+         ?: $request->header('Accept-Language','')
+         ?: $request->header('accept-language','')
+         ?: $request->header('think-lang','');
       return self::normalizeLanguage($language);
    }
 

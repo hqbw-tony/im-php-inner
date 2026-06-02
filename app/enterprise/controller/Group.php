@@ -100,21 +100,26 @@ class Group extends BaseController
    public function editGroupName()
    {
       $param = $this->request->param();
+      $lang=User::resolveLanguage($this->uid,$this->request);
+      \think\facade\Lang::switchLangSet($lang);
+      $msg=function($key,$vars=[]) use($lang){
+         return lang($key,$vars,$lang);
+      };
       $group_id = explode('-', $param['id'])[1];
       $displayName=trim((string)($param['displayName'] ?? ''));
       if($displayName===''){
-         return warning(lang('system.notNull'));
+         return warning($msg('system.notNull'));
       }
       if(!GroupUser::canEditGroupInfo($group_id,$this->userInfo['user_id'])){
-         return warning(lang('group.notAuth'));
+         return warning($msg('group.notAuth'));
       }
       $group=GroupModel::where(['group_id' => $group_id])->find();
       if(!$group){
-         return warning(lang('group.exist'));
+         return warning($msg('group.exist'));
       }
       $oldName=(string)$group['name'];
       if($oldName===$displayName){
-         return success(lang('system.editOk'));
+         return success($msg('system.editOk'));
       }
       GroupModel::where(['group_id' => $group_id])->update(['name' => $displayName,'name_py'=>pinyin_sentence($displayName)]);
       $param['displayName'] = $displayName;
@@ -124,7 +129,7 @@ class Group extends BaseController
       $action='editGroupName';
       event('GroupChange', ['action' => $action, 'group_id' => $group_id, 'param' => $param]);
       wsSendMsg($group_id, $action, $param, 1);
-      return success(lang('system.editOk'));
+      return success($msg('system.editOk'));
    }
 
    // 添加群成员
