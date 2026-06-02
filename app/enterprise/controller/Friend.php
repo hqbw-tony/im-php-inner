@@ -149,16 +149,27 @@ class Friend extends BaseController
 
     protected function pushAcceptedContacts($uid,$friendUserId)
     {
-        $userM=new User;
-        // 将对方的信息发送给我，把我的信息发送对方
-        $user=$userM->setContact($friendUserId,0,'event',Message::renderI18n('friend.newChat',[],$uid));
-        if($user){
-            wsSendMsg($uid,'appendContact',$user);
+        $userInfo=User::field('user_id,realname,avatar')->where(['user_id'=>$uid])->find();
+        if(!$userInfo){
+            return;
         }
-        $myInfo=$userM->setContact($uid,0,'event',Message::renderI18n('friend.newChat',[],$friendUserId));
-        if($myInfo){
-            wsSendMsg($friendUserId,'appendContact',$myInfo);
-        }
+        $userInfo=$userInfo->toArray();
+        $userInfo['id']=$userInfo['user_id'];
+        $userInfo['avatar']=avatarUrl($userInfo['avatar'],$userInfo['realname'],$userInfo['user_id']);
+        $msg=[
+            'id'=>\utils\Str::getUuid(),
+            'user_id'=>$uid,
+            'content'=>Message::renderI18n('friend.newChat',[],$uid),
+            'toContactId'=>$friendUserId,
+            'sendTime'=>time()*1000,
+            'type'=>'event',
+            'is_group'=>0,
+            'status'=>'succeed',
+            'fromUser'=>$userInfo,
+            'at'=>[],
+            'extends'=>Message::i18nExtends('friend.newChat'),
+        ];
+        Message::sendMsg($msg);
     }
 
 
