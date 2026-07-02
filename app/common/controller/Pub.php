@@ -52,7 +52,13 @@ class Pub
             if(!$apiStatus){
                 return warning(lang('system.apiClose'));
             }
-            $userInfo=Cache::get($token);
+            $thirdLoginKey='third_login:'.$token;
+            $userInfo=Cache::get($thirdLoginKey);
+            if($userInfo){
+                Cache::delete($thirdLoginKey);
+            }else{
+                $userInfo=Cache::get($token);
+            }
             if(!$userInfo){
                 return warning(lang('user.tokenFailure'));
             }
@@ -110,6 +116,12 @@ class Pub
             'authToken'=>$authToken,
             'userInfo'=>$userInfo
         ];
+        if (isset($param['contact_id'])) {
+            $data['contact_id'] = (int)$param['contact_id'];
+        }
+        if (isset($param['embed'])) {
+            $data['embed'] = (int)$param['embed'];
+        }
         return success(lang('user.loginOk'),$data);
    }
 

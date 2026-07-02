@@ -390,3 +390,42 @@ ALTER TABLE `yu_user`
   MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 COMMIT;
 
+CREATE TABLE IF NOT EXISTS `yu_third_platform` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'third platform name',
+  `app_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'third platform app id',
+  `app_secret` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'third platform app secret',
+  `default_cs_uid` int(11) NOT NULL DEFAULT '0' COMMENT 'default customer service user id',
+  `welcome` text COLLATE utf8mb4_unicode_ci COMMENT 'welcome message',
+  `code_ttl` int(11) NOT NULL DEFAULT '120' COMMENT 'login code ttl seconds',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'status 1 enabled 0 disabled',
+  `remark` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'remark',
+  `extra` json DEFAULT NULL COMMENT 'extra config',
+  `create_time` int(11) NOT NULL DEFAULT '0',
+  `update_time` int(11) NOT NULL DEFAULT '0',
+  `delete_time` int(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `app_id` (`app_id`),
+  KEY `status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='third platform table';
+
+CREATE TABLE IF NOT EXISTS `yu_third_user_map` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `platform_id` int(11) NOT NULL DEFAULT '0' COMMENT 'platform id',
+  `external_user_id` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'external user id',
+  `user_id` int(11) NOT NULL DEFAULT '0' COMMENT 'im user id',
+  `nickname` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'external nickname snapshot',
+  `avatar` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'external avatar snapshot',
+  `user_type` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'user' COMMENT 'external user type',
+  `tags` json DEFAULT NULL COMMENT 'external user tags',
+  `extra` json DEFAULT NULL COMMENT 'extra data',
+  `last_login_time` int(11) NOT NULL DEFAULT '0',
+  `create_time` int(11) NOT NULL DEFAULT '0',
+  `update_time` int(11) NOT NULL DEFAULT '0',
+  `delete_time` int(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `platform_external_user` (`platform_id`,`external_user_id`),
+  UNIQUE KEY `platform_user` (`platform_id`,`user_id`),
+  KEY `user_id` (`user_id`),
+  KEY `user_type` (`user_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='third user map table';
