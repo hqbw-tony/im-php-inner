@@ -69,7 +69,6 @@ class Api
     public function login()
     {
         $param=$this->request->param();
-        $isMobile=$param['is_mobile'] ?? false;
         if(!isset($param['account']) || !isset($param['open_id'])){
             return warning(lang('system.parameterError'));
         }
@@ -89,11 +88,7 @@ class Api
         // 将用户信息缓存5分钟
         Cache::set($md5,$userInfo,300);
         // 生成Url
-        if($isMobile){
-            $url=getMainHost().'/h5/#/pages/login/index?token='.$md5;
-        }else{
-            $url=getMainHost().'/#/login?token='.$md5;
-        }
+        $url=getMainHost().'?token='.$md5;
         return success(lang('user.loginOk'),$url);
         
     }
@@ -608,10 +603,7 @@ class Api
             'contact_id' => $csUid,
             'embed' => 1,
         ]);
-        if ($isMobile) {
-            return getMainHost() . '/h5/#/pages/login/index?' . $query;
-        }
-        return getMainHost() . '/#/login?' . $query;
+        return getMainHost() . '?' . $query;
     }
 
     protected function makeLoginCode()

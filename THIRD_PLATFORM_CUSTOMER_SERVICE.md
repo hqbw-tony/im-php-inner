@@ -40,7 +40,7 @@ Content-Type: application/json
 | `user_type` | 否 | 用户分类，默认 `user`。 |
 | `tags` | 否 | 用户标签，JSON 数组或对象。 |
 | `extra` | 否 | 扩展信息，JSON 对象。 |
-| `is_mobile` | 否 | 传 `1` 时返回 H5 登录地址。 |
+| `is_mobile` | 否 | 预留字段，可由业务方透传；当前返回地址不再区分 H5/PC 路径。 |
 
 返回：
 
@@ -49,7 +49,7 @@ Content-Type: application/json
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://im.example.com/#/login?token=xxxx&contact_id=2&embed=1",
+    "url": "https://im.example.com?token=xxxx&contact_id=2&embed=1",
     "token": "xxxx",
     "expires_in": 120,
     "im_user_id": 21,
@@ -245,13 +245,13 @@ echo $response;
 `sessionUrl` 指向三方业务自己的后端接口，由业务后端再调用 IM 的 `customerSession`。SDK 兼容以下返回结构：
 
 ```json
-{"code":0,"data":{"url":"https://im.example.com/#/login?token=xxxx&contact_id=2&embed=1"}}
+{"code":0,"data":{"url":"https://im.example.com?token=xxxx&contact_id=2&embed=1"}}
 ```
 
 也兼容直接返回：
 
 ```json
-{"url":"https://im.example.com/#/login?token=xxxx&contact_id=2&embed=1"}
+{"url":"https://im.example.com?token=xxxx&contact_id=2&embed=1"}
 ```
 
 ## SDK 自动初始化
