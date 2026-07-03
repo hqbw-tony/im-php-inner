@@ -210,7 +210,7 @@ x-im-sign: {sign}
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://inner-admin.bvugw.sbs/index.html?token=xxxx&contact_id=202&embed=1",
+    "url": "https://inner-admin.bvugw.sbs/index.html#/login?token=xxxx&contact_id=202&embed=1",
     "token": "xxxx",
     "expires_in": 120,
     "im_user_id": 101,
@@ -280,7 +280,7 @@ x-im-sign: {sign}
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://inner-admin.bvugw.sbs/index.html?token=yyyy&embed=1&staff=1",
+    "url": "https://inner-admin.bvugw.sbs/index.html#/login?token=yyyy&embed=1&staff=1",
     "token": "yyyy",
     "expires_in": 120,
     "im_user_id": 202,

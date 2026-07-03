@@ -150,7 +150,7 @@ POST {im_gateway}/common/api/pairSession
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://im.example.com/index.html?token=xxxx&contact_id=202&embed=1",
+    "url": "https://im.example.com/index.html#/login?token=xxxx&contact_id=202&embed=1",
     "token": "xxxx",
     "expires_in": 120,
     "im_user_id": 101,
@@ -208,7 +208,7 @@ POST {im_gateway}/common/api/agentSession
 5. IM 创建或复用代理 IM 账号。
 6. IM 返回代理的自动登录链接。
 7. 业务后台把 `url` 返回给业务前端。
-8. 业务前端打开 `/index.html?token=...&embed=1&staff=1`，代理进入原 IM 登录后的首页。
+8. 业务前端打开 `/index.html#/login?token=...&embed=1&staff=1`，代理进入原 IM 登录后的首页。
 
 ### 6.2 IM 请求参数
 
@@ -240,7 +240,7 @@ POST {im_gateway}/common/api/agentSession
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://im.example.com/index.html?token=yyyy&embed=1&staff=1",
+    "url": "https://im.example.com/index.html#/login?token=yyyy&embed=1&staff=1",
     "token": "yyyy",
     "expires_in": 120,
     "im_user_id": 202,
@@ -329,7 +329,7 @@ POST /api/im/customer-chat-url
   "code": 0,
   "msg": "ok",
   "data": {
-    "url": "https://im.example.com/index.html?token=xxxx&contact_id=202&embed=1",
+    "url": "https://im.example.com/index.html#/login?token=xxxx&contact_id=202&embed=1",
     "im_user_id": 101,
     "agent_im_user_id": 202,
     "contact_id": 202,
@@ -359,7 +359,7 @@ POST /api/im/agent-chat-url
   "code": 0,
   "msg": "ok",
   "data": {
-    "url": "https://im.example.com/index.html?token=yyyy&embed=1&staff=1",
+    "url": "https://im.example.com/index.html#/login?token=yyyy&embed=1&staff=1",
     "im_user_id": 202,
     "expires_in": 120
   }

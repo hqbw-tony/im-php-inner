@@ -754,7 +754,7 @@ class Api
         $code = $this->makeLoginCode();
         Cache::set('third_login:' . $code, $loginUser, $ttl);
         $query = http_build_query(array_merge(['token' => $code], $params));
-        return [$code, $this->agentChatHostPath('/index.html') . '?' . $query];
+        return [$code, $this->agentChatHostPath('/index.html#/login') . '?' . $query];
     }
 
     protected function makeLoginCode()
