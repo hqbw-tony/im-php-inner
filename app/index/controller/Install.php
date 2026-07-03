@@ -192,6 +192,8 @@ VERSION = 6.2.0
 RELEASE = 20251204
 # 主域名必填，例如：https://im.example.com
 HOST = {$domain}
+# 代理客服前端地址，不填则使用 HOST
+AGENT_CHAT_HOST =
 DEFAULT_TIMEZONE = Asia/Shanghai
 ID = {$random5}
 SECRET = {$random6}

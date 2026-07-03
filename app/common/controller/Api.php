@@ -731,7 +731,7 @@ class Api
         $userInfo = $userInfo->toArray();
         $userInfo['avatar'] = avatarUrl($userInfo['avatar'], $userInfo['realname'], $userInfo['user_id']);
         $userInfo['setting'] = User::normalizeSetting($userInfo['setting'] ?: [], $userInfo['user_id']);
-        $userInfo['qrUrl'] = getMainHost() . '/scan/u/' . encryptIds($userInfo['user_id']);
+        $userInfo['qrUrl'] = $this->mainHostPath('/scan/u/' . encryptIds($userInfo['user_id']));
         $userInfo['displayName'] = $userInfo['realname'];
         $userInfo['id'] = $userInfo['user_id'];
         unset($userInfo['password'], $userInfo['salt']);
@@ -754,11 +754,25 @@ class Api
         $code = $this->makeLoginCode();
         Cache::set('third_login:' . $code, $loginUser, $ttl);
         $query = http_build_query(array_merge(['token' => $code], $params));
-        return [$code, getMainHost() . '/index.html?' . $query];
+        return [$code, $this->agentChatHostPath('/index.html') . '?' . $query];
     }
 
     protected function makeLoginCode()
     {
         return rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
+    }
+
+    protected function mainHostPath($path)
+    {
+        return rtrim((string)getMainHost(), '/') . '/' . ltrim($path, '/');
+    }
+
+    protected function agentChatHostPath($path)
+    {
+        $host = (string)config('app.agent_chat_host', '');
+        if ($host === '') {
+            $host = (string)getMainHost();
+        }
+        return rtrim($host, '/') . '/' . ltrim($path, '/');
     }
 }
