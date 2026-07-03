@@ -166,6 +166,125 @@ class Api
         ]);
     }
 
+    // 业务方指定客户和代理建立聊天关系，并返回客户的一次性登录链接。
+    public function pairSession()
+    {
+        $platform = $this->getThirdPlatform();
+        if (!$platform) {
+            return warning('请使用三方平台AppID调用指定代理会话接口');
+        }
+        $param = $this->request->param();
+        $externalUserId = trim((string)($param['external_user_id'] ?? ''));
+        $externalAgentId = trim((string)($param['external_agent_id'] ?? ($param['external_staff_id'] ?? '')));
+        if ($externalUserId === '' || $externalAgentId === '') {
+            return warning('请传入三方用户ID和代理ID');
+        }
+
+        $userNickname = trim((string)($param['user_nickname'] ?? ($param['nickname'] ?? ''))) ?: ('用户' . substr(md5($externalUserId), 0, 6));
+        $userAvatar = trim((string)($param['user_avatar'] ?? ($param['avatar'] ?? '')));
+        $agentNickname = trim((string)($param['agent_nickname'] ?? ($param['staff_nickname'] ?? ''))) ?: ('代理' . substr(md5($externalAgentId), 0, 6));
+        $agentAvatar = trim((string)($param['agent_avatar'] ?? ($param['staff_avatar'] ?? '')));
+
+        Db::startTrans();
+        try {
+            [$user] = $this->findOrCreateThirdUser(
+                $platform,
+                $externalUserId,
+                $userNickname,
+                $userAvatar,
+                '1',
+                $param['user_tags'] ?? null,
+                $param['user_extra'] ?? null,
+                true
+            );
+            [$agent] = $this->findOrCreateThirdUser(
+                $platform,
+                $externalAgentId,
+                $agentNickname,
+                $agentAvatar,
+                '2',
+                $param['agent_tags'] ?? ($param['staff_tags'] ?? null),
+                $param['agent_extra'] ?? ($param['staff_extra'] ?? null),
+                true
+            );
+            User::where('user_id', $user['user_id'])->update([
+                'cs_uid' => (int)$agent['user_id'],
+                'update_time' => time(),
+            ]);
+            Friend::acceptPair((int)$user['user_id'], (int)$agent['user_id'], time());
+            $this->touchThirdUserMap((int)$platform['id'], $externalUserId, '1');
+            $this->touchThirdUserMap((int)$platform['id'], $externalAgentId, '2');
+            Db::commit();
+        } catch (\Exception $e) {
+            Db::rollback();
+            return error($e->getMessage());
+        }
+
+        $ttl = $this->normalizeCodeTtl($platform['code_ttl'] ?? 120);
+        [$code, $url] = $this->makeThirdLoginUrl((int)$user['user_id'], $ttl, [
+            'contact_id' => (int)$agent['user_id'],
+            'embed' => 1,
+        ]);
+        return success('', [
+            'url' => $url,
+            'token' => $code,
+            'expires_in' => $ttl,
+            'im_user_id' => (int)$user['user_id'],
+            'agent_im_user_id' => (int)$agent['user_id'],
+            'contact_id' => (int)$agent['user_id'],
+            'platform_id' => (int)$platform['id'],
+        ]);
+    }
+
+    // 代理后台一键打开 IM 时，创建或复用代理账号并返回一次性登录链接。
+    public function agentSession()
+    {
+        $platform = $this->getThirdPlatform();
+        if (!$platform) {
+            return warning('请使用三方平台AppID调用代理登录接口');
+        }
+        $param = $this->request->param();
+        $externalAgentId = trim((string)($param['external_agent_id'] ?? ($param['external_staff_id'] ?? '')));
+        if ($externalAgentId === '') {
+            return warning('请传入代理ID');
+        }
+        $nickname = trim((string)($param['nickname'] ?? ($param['agent_nickname'] ?? ($param['staff_nickname'] ?? '')))) ?: ('代理' . substr(md5($externalAgentId), 0, 6));
+        $avatar = trim((string)($param['avatar'] ?? ($param['agent_avatar'] ?? ($param['staff_avatar'] ?? ''))));
+
+        Db::startTrans();
+        try {
+            [$agent] = $this->findOrCreateThirdUser(
+                $platform,
+                $externalAgentId,
+                $nickname,
+                $avatar,
+                '2',
+                $param['tags'] ?? ($param['agent_tags'] ?? ($param['staff_tags'] ?? null)),
+                $param['extra'] ?? ($param['agent_extra'] ?? ($param['staff_extra'] ?? null)),
+                true
+            );
+            $this->touchThirdUserMap((int)$platform['id'], $externalAgentId, '2');
+            Db::commit();
+        } catch (\Exception $e) {
+            Db::rollback();
+            return error($e->getMessage());
+        }
+
+        $ttl = $this->normalizeCodeTtl($platform['code_ttl'] ?? 120);
+        [$code, $url] = $this->makeThirdLoginUrl((int)$agent['user_id'], $ttl, [
+            'embed' => 1,
+            'staff' => 1,
+        ]);
+        return success('', [
+            'url' => $url,
+            'token' => $code,
+            'expires_in' => $ttl,
+            'im_user_id' => (int)$agent['user_id'],
+            'platform_id' => (int)$platform['id'],
+            'user_type' => '2',
+        ]);
+    }
+
     // 查询当前三方平台可由业务方维护的客服接入配置。
     public function platformConfig()
     {
@@ -329,13 +448,17 @@ class Api
         return success(lang('system.editOk'), $data);
     }
 
-    protected function findOrCreateThirdUser($platform, $externalUserId, $nickname, $avatar, $userType, $tags, $extra)
+    protected function findOrCreateThirdUser($platform, $externalUserId, $nickname, $avatar, $userType, $tags, $extra, $strictUserType = false)
     {
-        $map = ThirdUserMap::where([
+        $mapQuery = ThirdUserMap::where([
             'platform_id' => $platform['id'],
             'external_user_id' => $externalUserId,
             'delete_time' => 0,
-        ])->find();
+        ]);
+        if ($strictUserType) {
+            $mapQuery = $mapQuery->where('user_type', $userType);
+        }
+        $map = $mapQuery->find();
         if ($map) {
             $user = User::where(['user_id' => $map['user_id'], 'status' => 1])->find();
             if (!$user) {
@@ -353,7 +476,7 @@ class Api
             return [$user, false];
         }
 
-        $account = $this->makeThirdAccount($platform['id'], $externalUserId);
+        $account = $this->makeThirdAccount($platform['id'], $externalUserId, $strictUserType ? $userType : '');
         $user = User::where('account', $account)->find();
         $isNewUser = false;
         if (!$user) {
@@ -389,6 +512,22 @@ class Api
         return [$user, $isNewUser];
     }
 
+    protected function touchThirdUserMap($platformId, $externalUserId, $userType = '')
+    {
+        $query = ThirdUserMap::where([
+            'platform_id' => $platformId,
+            'external_user_id' => $externalUserId,
+            'delete_time' => 0,
+        ]);
+        if ($userType !== '') {
+            $query = $query->where('user_type', $userType);
+        }
+        $query->update([
+            'last_login_time' => time(),
+            'update_time' => time(),
+        ]);
+    }
+
     protected function syncThirdUserProfile($user, $nickname, $avatar)
     {
         $update = [];
@@ -405,8 +544,11 @@ class Api
         }
     }
 
-    protected function makeThirdAccount($platformId, $externalUserId)
+    protected function makeThirdAccount($platformId, $externalUserId, $userType = '')
     {
+        if ($userType !== '') {
+            return md5('third:' . $platformId . ':' . $userType . ':' . $externalUserId);
+        }
         return md5('third:' . $platformId . ':' . $externalUserId);
     }
 
@@ -604,6 +746,15 @@ class Api
             'embed' => 1,
         ]);
         return getMainHost() . '?' . $query;
+    }
+
+    protected function makeThirdLoginUrl($userId, $ttl, $params = [])
+    {
+        $loginUser = $this->buildLoginUserInfo($userId);
+        $code = $this->makeLoginCode();
+        Cache::set('third_login:' . $code, $loginUser, $ttl);
+        $query = http_build_query(array_merge(['token' => $code], $params));
+        return [$code, getMainHost() . '/index.html?' . $query];
     }
 
     protected function makeLoginCode()

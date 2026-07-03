@@ -24,6 +24,8 @@
 8. IM 返回一次性登录短码和聊天地址 `url`。
 9. 三方业务平台前端使用 iframe、弹窗或新窗口打开 `url`，用户即可进入聊天。
 
+如果业务方需要“用户 A 找指定代理 B”，由业务方先判断 A 对应哪个代理 B，然后调用 `/common/api/pairSession`。IM 只负责创建/复用 A 和 B 的 IM 账号、建立好友关系、返回登录链接。
+
 重要规则：
 
 - `external_user_id` 必须是三方业务平台内稳定且唯一的用户 ID。
@@ -31,6 +33,7 @@
 - 同一个平台下，相同 `external_user_id` 会复用同一个 IM 用户。
 - 新用户首次创建时才发送欢迎语，后续重复打开不会重复发送。
 - 登录短码是一次性的，成功登录后立即失效。
+- 指定代理链路使用 `third_user_map.user_type` 区分身份：`1` 客户、`2` 代理、`3` 管理员。
 
 ## 三、开放接口签名规则
 
@@ -150,6 +153,146 @@ if (res.code === 0 && res.data && res.data.url) {
   style="width: 100%; height: 640px; border: 0;"
 ></iframe>
 ```
+
+## 四-A、指定代理聊天接口
+
+业务方已经判断出“用户 A 应该找代理 B”时，调用此接口。IM 不判断业务归属关系，只负责创建或复用双方 IM 账号、建立好友关系，并返回用户 A 的登录聊天链接。
+
+```http
+POST /common/api/pairSession
+Host: inner-admin.bvugw.sbs
+Content-Type: application/json
+x-im-appid: {app_id}
+x-im-timestamp: {timestamp}
+x-im-sign: {sign}
+```
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `external_user_id` | string | 是 | 业务用户 A 的外部 ID。 |
+| `user_nickname` | string | 否 | 用户 A 昵称。未传会自动生成。 |
+| `user_avatar` | string | 否 | 用户 A 头像 URL。 |
+| `user_tags` | array/object | 否 | 用户 A 标签。 |
+| `user_extra` | object | 否 | 用户 A 扩展信息。 |
+| `external_agent_id` | string | 是 | 代理 B 的外部 ID。也兼容 `external_staff_id`。 |
+| `agent_nickname` | string | 否 | 代理 B 昵称。未传会自动生成。 |
+| `agent_avatar` | string | 否 | 代理 B 头像 URL。 |
+| `agent_tags` | array/object | 否 | 代理 B 标签。也兼容 `staff_tags`。 |
+| `agent_extra` | object | 否 | 代理 B 扩展信息。也兼容 `staff_extra`。 |
+
+请求示例：
+
+```json
+{
+  "external_user_id": "user_A_10001",
+  "user_nickname": "用户A",
+  "user_avatar": "",
+  "external_agent_id": "agent_B_20001",
+  "agent_nickname": "代理B",
+  "agent_avatar": "",
+  "user_extra": {
+    "level": "vip"
+  },
+  "agent_extra": {
+    "group": "east"
+  }
+}
+```
+
+成功返回：
+
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "url": "https://inner-admin.bvugw.sbs/index.html?token=xxxx&contact_id=202&embed=1",
+    "token": "xxxx",
+    "expires_in": 120,
+    "im_user_id": 101,
+    "agent_im_user_id": 202,
+    "contact_id": 202,
+    "platform_id": 1
+  }
+}
+```
+
+返回字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `url` | 用户 A 的自动登录聊天链接，打开后默认聊天对象为代理 B。 |
+| `im_user_id` | 用户 A 在 IM 侧的用户 ID，业务方可保存。 |
+| `agent_im_user_id` | 代理 B 在 IM 侧的用户 ID，业务方可保存。 |
+| `contact_id` | 前端默认打开的聊天对象，即代理 B 的 IM 用户 ID。 |
+
+规则：
+
+- 用户 A 写入 `third_user_map.user_type=1`。
+- 代理 B 写入 `third_user_map.user_type=2`。
+- 如果 A 或 B 不存在，IM 会自动创建普通 IM 用户。
+- 如果 A 或 B 已存在，IM 会复用原 IM 用户并更新昵称、头像、扩展信息。
+- IM 会给 A 和 B 建立双向好友关系。
+- IM 会把 A 的 `cs_uid` 更新为 B 的 IM 用户 ID。
+- 该接口不会发送欢迎语，也不会使用平台默认客服。
+
+## 四-B、代理后台自动登录接口
+
+代理后台点击“内嵌客服”时，业务方后端调用此接口，获取代理 B 自动登录 `/index.html` 的链接。
+
+```http
+POST /common/api/agentSession
+Host: inner-admin.bvugw.sbs
+Content-Type: application/json
+x-im-appid: {app_id}
+x-im-timestamp: {timestamp}
+x-im-sign: {sign}
+```
+
+请求参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `external_agent_id` | string | 是 | 代理 B 的外部 ID。也兼容 `external_staff_id`。 |
+| `nickname` | string | 否 | 代理昵称。也兼容 `agent_nickname`、`staff_nickname`。 |
+| `avatar` | string | 否 | 代理头像。也兼容 `agent_avatar`、`staff_avatar`。 |
+| `tags` | array/object | 否 | 代理标签。也兼容 `agent_tags`、`staff_tags`。 |
+| `extra` | object | 否 | 代理扩展信息。也兼容 `agent_extra`、`staff_extra`。 |
+
+请求示例：
+
+```json
+{
+  "external_agent_id": "agent_B_20001",
+  "nickname": "代理B",
+  "avatar": ""
+}
+```
+
+成功返回：
+
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "url": "https://inner-admin.bvugw.sbs/index.html?token=yyyy&embed=1&staff=1",
+    "token": "yyyy",
+    "expires_in": 120,
+    "im_user_id": 202,
+    "platform_id": 1,
+    "user_type": "2"
+  }
+}
+```
+
+规则：
+
+- 代理 B 写入 `third_user_map.user_type=2`。
+- 该接口只生成代理自己的登录链接，不建立好友关系。
+- `/index.html` 没有 `token` 时仍然保留原账号密码登录；有 `token` 时由前端自动调用 `/common/pub/login` 换正式登录态。
 
 ## 五、可选接口：查询平台配置
 

@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS `yu_third_user_map` (
   `update_time` int(11) NOT NULL DEFAULT '0',
   `delete_time` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `platform_external_user` (`platform_id`, `external_user_id`),
+  UNIQUE KEY `platform_external_user` (`platform_id`, `external_user_id`, `user_type`),
   UNIQUE KEY `platform_user` (`platform_id`, `user_id`),
   KEY `user_id` (`user_id`),
   KEY `user_type` (`user_type`)

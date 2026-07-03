@@ -3,7 +3,7 @@
 ## 接入流程
 
 1. IM 后台或管理接口创建三方平台，得到 `app_id` 和 `app_secret`。
-2. 已有环境导入 `public/sql/6.2.2-third-platform.sql`。
+2. 已有环境导入 `public/sql/6.2.2-third-platform.sql`；已安装三方平台表的环境再导入 `public/sql/6.2.3-third-user-map-type-index.sql`。
 3. 三方业务后端保存 `app_id` 和 `app_secret`，不要下发到浏览器。
 4. 三方业务前端打开客服时，请求自己的业务后端。
 5. 业务后端使用平台密钥签名，调用 IM 的 `common/api/customerSession`。
@@ -69,6 +69,98 @@ Content-Type: application/json
 - `url` 会附带 `contact_id` 和 `embed=1`，用于前端识别默认客服和嵌入场景；旧前端忽略这两个参数也不影响登录。
 - 登录接口收到 `contact_id/embed` 时也会在返回数据中带回，方便后续前端源码支持自动打开指定客服会话。
 - `app_secret` 只允许三方业务后端保存，不能暴露给浏览器。
+
+## 指定代理聊天接口
+
+当业务方已经判断出“用户 A 应该找代理 B”时，调用此接口。IM 不判断代理归属，只创建或复用双方 IM 账号、建立好友关系，并返回用户 A 的登录聊天链接。
+
+```http
+POST /common/api/pairSession
+Content-Type: application/json
+```
+
+参数：
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `external_user_id` | 是 | 业务用户 A 的外部 ID。 |
+| `user_nickname` | 否 | 用户 A 昵称。 |
+| `user_avatar` | 否 | 用户 A 头像。 |
+| `user_tags` | 否 | 用户 A 标签，JSON 数组或对象。 |
+| `user_extra` | 否 | 用户 A 扩展信息，JSON 对象。 |
+| `external_agent_id` | 是 | 代理 B 的外部 ID，兼容 `external_staff_id`。 |
+| `agent_nickname` | 否 | 代理 B 昵称。 |
+| `agent_avatar` | 否 | 代理 B 头像。 |
+| `agent_tags` | 否 | 代理 B 标签，兼容 `staff_tags`。 |
+| `agent_extra` | 否 | 代理 B 扩展信息，兼容 `staff_extra`。 |
+
+返回：
+
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "url": "https://im.example.com/index.html?token=xxxx&contact_id=202&embed=1",
+    "token": "xxxx",
+    "expires_in": 120,
+    "im_user_id": 101,
+    "agent_im_user_id": 202,
+    "contact_id": 202,
+    "platform_id": 1
+  }
+}
+```
+
+规则：
+
+- 用户 A 写入 `third_user_map.user_type=1`，代理 B 写入 `third_user_map.user_type=2`，管理员预留为 `3`。
+- A 或 B 不存在时自动创建普通 IM 用户，存在时复用并更新昵称、头像、扩展信息。
+- IM 会给 A 和 B 建立双向好友关系，并把 A 的 `cs_uid` 更新为 B 的 IM 用户 ID。
+- 该接口不发送欢迎语，也不使用平台默认客服。
+- 业务方可以保存返回的 `im_user_id` 和 `agent_im_user_id`。
+
+## 代理后台自动登录接口
+
+代理后台点击内嵌客服时，业务方后端调用此接口，获取代理自己的自动登录链接。
+
+```http
+POST /common/api/agentSession
+Content-Type: application/json
+```
+
+参数：
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `external_agent_id` | 是 | 代理 B 的外部 ID，兼容 `external_staff_id`。 |
+| `nickname` | 否 | 代理昵称，兼容 `agent_nickname`、`staff_nickname`。 |
+| `avatar` | 否 | 代理头像，兼容 `agent_avatar`、`staff_avatar`。 |
+| `tags` | 否 | 代理标签，兼容 `agent_tags`、`staff_tags`。 |
+| `extra` | 否 | 代理扩展信息，兼容 `agent_extra`、`staff_extra`。 |
+
+返回：
+
+```json
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "url": "https://im.example.com/index.html?token=yyyy&embed=1&staff=1",
+    "token": "yyyy",
+    "expires_in": 120,
+    "im_user_id": 202,
+    "platform_id": 1,
+    "user_type": "2"
+  }
+}
+```
+
+规则：
+
+- 代理写入 `third_user_map.user_type=2`。
+- 该接口只生成代理自己的登录链接，不建立好友关系。
+- `/index.html` 无 `token` 时仍然走原账号密码登录；有 `token` 时前端用 `/common/pub/login` 自动登录。
 
 ## 平台配置接口
 
