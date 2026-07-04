@@ -221,7 +221,7 @@ class Api
         }
 
         $ttl = $this->normalizeCodeTtl($platform['code_ttl'] ?? 120);
-        [$code, $url] = $this->makeThirdLoginUrl((int)$user['user_id'], $ttl, [
+        [$code, $url] = $this->makeCustomerPairLoginUrl((int)$user['user_id'], $ttl, [
             'contact_id' => (int)$agent['user_id'],
             'embed' => 1,
         ]);
@@ -755,6 +755,15 @@ class Api
         Cache::set('third_login:' . $code, $loginUser, $ttl);
         $query = http_build_query(array_merge(['token' => $code], $params));
         return [$code, $this->agentChatHostPath('/index.html#/login') . '?' . $query];
+    }
+
+    protected function makeCustomerPairLoginUrl($userId, $ttl, $params = [])
+    {
+        $loginUser = $this->buildLoginUserInfo($userId);
+        $code = $this->makeLoginCode();
+        Cache::set('third_login:' . $code, $loginUser, $ttl);
+        $query = http_build_query(array_merge(['token' => $code], $params));
+        return [$code, $this->mainHostPath('/index.html#/login') . '?' . $query];
     }
 
     protected function makeLoginCode()

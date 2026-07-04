@@ -26,7 +26,7 @@
 
 如果业务方需要“用户 A 找指定代理 B”，由业务方先判断 A 对应哪个代理 B，然后调用 `/common/api/pairSession`。IM 只负责创建/复用 A 和 B 的 IM 账号、建立好友关系、返回登录链接。
 
-`pairSession` 和 `agentSession` 返回的 `/index.html` 自动登录链接域名由 IM 服务端 `[APP] AGENT_CHAT_HOST` 配置决定；未配置时回退使用 `[APP] HOST`。
+`pairSession` 返回的用户聊天链接域名使用 IM 服务端 `[APP] HOST`；`agentSession` 返回的代理后台登录链接域名优先使用 `[APP] AGENT_CHAT_HOST`，未配置时回退 `[APP] HOST`。
 
 重要规则：
 
