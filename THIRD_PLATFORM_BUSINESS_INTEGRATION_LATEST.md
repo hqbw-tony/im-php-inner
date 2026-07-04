@@ -17,7 +17,8 @@
    - 如果平台默认头像也没配置，则头像为空，由 IM 前端按原有默认头像逻辑展示。
 5. 如果业务方传了头像，以业务方传入的头像为准。
 6. 已存在的 IM 账号再次打开客服时，如果业务方不传头像，不会覆盖已有头像。
-7. 业务方可以在用户或代理资料修改后调用 `/common/api/savePlatformUser` 主动同步昵称和头像。
+7. 业务方调用 `/common/api/pairSession` 或 `/common/api/agentSession` 时，建议每次都传当前最新昵称和头像，IM 会同步更新对应 IM 账号资料。
+8. 业务方也可以在用户或代理资料修改后调用 `/common/api/savePlatformUser` 主动同步昵称和头像。
 
 ## 2. 业务方需要改什么
 
@@ -30,7 +31,7 @@
 | 调用 `platformConfig` 查询默认客服信息 | 否 | 用于后台展示当前 IM 默认客服、默认头像、欢迎语。 |
 | 调用 `pairSession` 创建用户和代理聊天关系 | 是，指定代理模式需要 | 用户 A 找代理 B 时使用。 |
 | 调用 `agentSession` 给代理一键登录 IM | 是，代理后台入口需要 | 代理在业务后台点击“内嵌客服”时使用。 |
-| 传昵称和头像 | 建议 | 打开客服时传最新昵称、头像；不传头像时 IM 使用默认头像兜底。 |
+| 传昵称和头像 | 建议 | `pairSession` / `agentSession` 每次调用时传最新昵称、头像，IM 会同步更新；不传头像时新账号使用默认头像兜底。 |
 | 调用 `savePlatformUser` 主动同步资料 | 可选 | 资料修改后想立即同步到 IM 时使用。 |
 
 ## 3. 公共签名规则
@@ -148,6 +149,8 @@ POST {im_gateway}/common/api/platformConfig
 
 业务方判断“用户 A 应该联系代理 B”后，调用该接口。IM 不判断业务关系，只负责创建或复用双方 IM 账号、建立好友关系、返回用户聊天链接。
 
+同步规则：业务后台每次调用时建议从业务库读取用户和代理的最新昵称、头像并传给 IM；IM 收到 `user_nickname`、`user_avatar`、`agent_nickname`、`agent_avatar` 后，会同步更新双方 IM 账号资料。
+
 ```http
 POST {im_gateway}/common/api/pairSession
 ```
@@ -170,11 +173,11 @@ POST {im_gateway}/common/api/pairSession
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
 | `external_user_id` | 是 | 业务平台用户稳定唯一 ID。 |
-| `user_nickname` | 否 | 用户昵称，建议传业务平台当前最新昵称。 |
-| `user_avatar` | 否 | 用户头像 URL。不传时新账号使用客户默认头像。 |
+| `user_nickname` | 否 | 用户昵称，建议每次传业务平台当前最新昵称，IM 会同步更新。 |
+| `user_avatar` | 否 | 用户头像 URL，建议每次传当前最新头像，IM 会同步更新；不传时新账号使用客户默认头像。 |
 | `external_agent_id` | 是 | 业务平台代理稳定唯一 ID。 |
-| `agent_nickname` | 否 | 代理昵称，建议传业务平台当前最新昵称。 |
-| `agent_avatar` | 否 | 代理头像 URL。不传时新账号使用代理默认头像。 |
+| `agent_nickname` | 否 | 代理昵称，建议每次传业务平台当前最新昵称，IM 会同步更新。 |
+| `agent_avatar` | 否 | 代理头像 URL，建议每次传当前最新头像，IM 会同步更新；不传时新账号使用代理默认头像。 |
 | `user_tags` | 否 | 客户业务标签。 |
 | `user_extra` | 否 | 客户业务扩展信息。 |
 | `agent_tags` | 否 | 代理业务标签。 |
@@ -204,6 +207,8 @@ POST {im_gateway}/common/api/pairSession
 
 代理在业务后台点击“内嵌客服”时，业务后台调用该接口，返回代理自己的 IM 登录链接。
 
+同步规则：业务后台每次调用时建议传代理当前最新昵称和头像；IM 收到 `nickname` / `agent_nickname` / `staff_nickname`、`avatar` / `agent_avatar` / `staff_avatar` 后，会同步更新代理 IM 账号资料。
+
 ```http
 POST {im_gateway}/common/api/agentSession
 ```
@@ -223,8 +228,8 @@ POST {im_gateway}/common/api/agentSession
 | 标准字段 | 兼容字段 | 说明 |
 | --- | --- | --- |
 | `external_agent_id` | `external_staff_id` | 代理唯一 ID。 |
-| `nickname` | `agent_nickname`、`staff_nickname` | 代理昵称。 |
-| `avatar` | `agent_avatar`、`staff_avatar` | 代理头像 URL。 |
+| `nickname` | `agent_nickname`、`staff_nickname` | 代理昵称，建议每次传当前最新昵称，IM 会同步更新。 |
+| `avatar` | `agent_avatar`、`staff_avatar` | 代理头像 URL，建议每次传当前最新头像，IM 会同步更新。 |
 
 返回示例：
 
