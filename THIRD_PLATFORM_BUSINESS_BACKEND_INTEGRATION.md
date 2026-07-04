@@ -21,7 +21,7 @@
 | `app_id` | IM 分配给三方业务平台的商户号。 |
 | `app_secret` | IM 分配给三方业务平台的密钥，只能保存在后端。 |
 
-IM 服务端生成用户聊天链接和代理登录链接时使用不同域名配置：`customerSession` 和 `pairSession` 的用户聊天链接使用 `[APP] HOST`，并采用相同的 `?token=...&contact_id=...&embed=1` 拼接格式；`agentSession` 的代理后台登录链接优先使用 `[APP] AGENT_CHAT_HOST`，未配置时回退 `[APP] HOST`。
+IM 服务端生成用户聊天链接和代理登录链接时使用不同域名配置：`customerSession` 的用户聊天链接使用 `[APP] HOST`；`pairSession` 的用户聊天链接优先使用 `[APP] CUSTOMER_CHAT_HOST`，未配置时回退 `[APP] HOST`；两者都采用 `?token=...&contact_id=...&embed=1` 拼接格式。`agentSession` 的代理后台登录链接优先使用 `[APP] AGENT_CHAT_HOST`，未配置时回退 `[APP] HOST`。
 
 注意：
 

@@ -10,6 +10,8 @@ return [
     'app_release' =>env('app.release', '20241127'),
     // 应用地址
     'app_host'         => env('app.host', ''),
+    // 客户聊天前端地址，不配置时回退到应用地址
+    'customer_chat_host' => env('app.customer_chat_host', ''),
     // 代理客服前端地址，不配置时回退到应用地址
     'agent_chat_host'  => env('app.agent_chat_host', ''),
     // 应用的命名空间

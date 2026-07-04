@@ -224,7 +224,7 @@ class Api
         $ttl = $this->normalizeCodeTtl($platform['code_ttl'] ?? 120);
         $code = $this->makeLoginCode();
         Cache::set('third_login:' . $code, $loginUser, $ttl);
-        $url = $this->buildCustomerLoginUrl($code, (int)$agent['user_id']);
+        $url = $this->buildPairLoginUrl($code, (int)$agent['user_id']);
         return success('', [
             'url' => $url,
             'token' => $code,
@@ -748,6 +748,16 @@ class Api
         return getMainHost() . '?' . $query;
     }
 
+    protected function buildPairLoginUrl($code, $contactId)
+    {
+        $query = http_build_query([
+            'token' => $code,
+            'contact_id' => $contactId,
+            'embed' => 1,
+        ]);
+        return $this->customerChatHost() . '?' . $query;
+    }
+
     protected function makeThirdLoginUrl($userId, $ttl, $params = [])
     {
         $loginUser = $this->buildLoginUserInfo($userId);
@@ -765,6 +775,15 @@ class Api
     protected function mainHostPath($path)
     {
         return rtrim((string)getMainHost(), '/') . '/' . ltrim($path, '/');
+    }
+
+    protected function customerChatHost()
+    {
+        $host = (string)config('app.customer_chat_host', '');
+        if ($host === '') {
+            $host = (string)getMainHost();
+        }
+        return rtrim($host, '/');
     }
 
     protected function agentChatHostPath($path)
