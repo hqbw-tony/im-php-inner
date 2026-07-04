@@ -9,7 +9,7 @@
 5. 业务后端使用平台密钥签名，调用 IM 的 `common/api/customerSession`。
 6. IM 返回一次性短码登录地址，业务前端用 iframe 或新窗口打开即可聊天。
 
-`pairSession` 返回的用户聊天链接使用 IM 服务端 `[APP] HOST` 拼接；`agentSession` 返回的代理后台登录链接优先使用 `[APP] AGENT_CHAT_HOST`，未配置时回退 `[APP] HOST`。
+`customerSession` 和 `pairSession` 返回的用户聊天链接使用 IM 服务端 `[APP] HOST` 拼接，并采用相同的 `?token=...&contact_id=...&embed=1` 格式；`agentSession` 返回的代理后台登录链接优先使用 `[APP] AGENT_CHAT_HOST`，未配置时回退 `[APP] HOST`。
 
 ## 开放 API 签名
 
@@ -103,7 +103,7 @@ Content-Type: application/json
   "code": 0,
   "msg": "",
   "data": {
-    "url": "https://im.example.com/index.html#/login?token=xxxx&contact_id=202&embed=1",
+    "url": "https://im.example.com?token=xxxx&contact_id=202&embed=1",
     "token": "xxxx",
     "expires_in": 120,
     "im_user_id": 101,
