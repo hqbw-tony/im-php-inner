@@ -186,6 +186,12 @@ class ThirdPlatform extends BaseController
         }
         $data['update_time'] = time();
         $map->save($data);
+        if (array_key_exists('nickname', $data) || array_key_exists('avatar', $data)) {
+            $user = User::where(['user_id' => $map['user_id'], 'status' => 1])->find();
+            if ($user) {
+                $this->syncThirdUserProfileUpdate($user, $data);
+            }
+        }
         $result = $map->toArray();
         $this->appendThirdUserInfo($result, true);
         return success(lang('system.editOk'), $result);
@@ -219,6 +225,8 @@ class ThirdPlatform extends BaseController
             'name' => $name,
             'app_id' => trim((string)($data['app_id'] ?? '')),
             'default_cs_uid' => $csUid,
+            'default_customer_avatar' => trim((string)($data['default_customer_avatar'] ?? '')),
+            'default_agent_avatar' => trim((string)($data['default_agent_avatar'] ?? '')),
             'welcome' => trim((string)($data['welcome'] ?? '')),
             'code_ttl' => $codeTtl,
             'status' => isset($data['status']) ? ((int)$data['status'] ? 1 : 0) : 1,
@@ -305,7 +313,7 @@ class ThirdPlatform extends BaseController
         $platformMap = [];
         if ($withPlatform) {
             $platformIds = array_values(array_unique(array_filter(array_column($rows, 'platform_id'))));
-            $platforms = $platformIds ? ThirdPlatformModel::where('id', 'in', $platformIds)->field('id,name,app_id,status,default_cs_uid')->select()->toArray() : [];
+            $platforms = $platformIds ? ThirdPlatformModel::where('id', 'in', $platformIds)->field('id,name,app_id,status,default_cs_uid,default_customer_avatar,default_agent_avatar')->select()->toArray() : [];
             foreach ($platforms as $platform) {
                 $platformMap[$platform['id']] = $platform;
             }
@@ -324,6 +332,28 @@ class ThirdPlatform extends BaseController
         }
         foreach ($data as &$item) {
             $apply($item);
+        }
+    }
+
+    protected function syncThirdUserProfileUpdate($user, $data)
+    {
+        $update = [];
+        if (array_key_exists('nickname', $data)) {
+            $nickname = trim((string)$data['nickname']);
+            if ($nickname !== '' && $nickname !== $user['realname']) {
+                $update['realname'] = $nickname;
+                $update['name_py'] = pinyin_sentence($nickname);
+            }
+        }
+        if (array_key_exists('avatar', $data)) {
+            $avatar = trim((string)$data['avatar']);
+            if (mb_strlen($avatar) <= 255 && $avatar !== (string)$user['avatar']) {
+                $update['avatar'] = $avatar;
+            }
+        }
+        if ($update) {
+            $update['update_time'] = time();
+            $user->save($update);
         }
     }
 }

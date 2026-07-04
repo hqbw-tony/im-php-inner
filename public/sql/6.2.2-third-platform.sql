@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS `yu_third_platform` (
   `app_id` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '平台AppID',
   `app_secret` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '平台密钥',
   `default_cs_uid` int(11) NOT NULL DEFAULT '0' COMMENT '默认客服用户ID',
+  `default_customer_avatar` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '客户默认头像',
+  `default_agent_avatar` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '代理客服默认头像',
   `welcome` text COLLATE utf8mb4_unicode_ci COMMENT '平台欢迎语',
   `code_ttl` int(11) NOT NULL DEFAULT '120' COMMENT '登录短码有效期',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',

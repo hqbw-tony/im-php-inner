@@ -105,7 +105,7 @@ class Api
         if ($externalUserId === '') {
             return warning('请传入三方用户ID');
         }
-        $nickname = trim((string)($param['nickname'] ?? '')) ?: ('用户' . substr(md5($externalUserId), 0, 6));
+        $nickname = trim((string)($param['nickname'] ?? ''));
         $avatar = trim((string)($param['avatar'] ?? ''));
         $userType = trim((string)($param['user_type'] ?? 'user')) ?: 'user';
         $tags = $param['tags'] ?? null;
@@ -180,9 +180,9 @@ class Api
             return warning('请传入三方用户ID和代理ID');
         }
 
-        $userNickname = trim((string)($param['user_nickname'] ?? ($param['nickname'] ?? ''))) ?: ('用户' . substr(md5($externalUserId), 0, 6));
+        $userNickname = trim((string)($param['user_nickname'] ?? ($param['nickname'] ?? '')));
         $userAvatar = trim((string)($param['user_avatar'] ?? ($param['avatar'] ?? '')));
-        $agentNickname = trim((string)($param['agent_nickname'] ?? ($param['staff_nickname'] ?? ''))) ?: ('代理' . substr(md5($externalAgentId), 0, 6));
+        $agentNickname = trim((string)($param['agent_nickname'] ?? ($param['staff_nickname'] ?? '')));
         $agentAvatar = trim((string)($param['agent_avatar'] ?? ($param['staff_avatar'] ?? '')));
 
         Db::startTrans();
@@ -248,7 +248,7 @@ class Api
         if ($externalAgentId === '') {
             return warning('请传入代理ID');
         }
-        $nickname = trim((string)($param['nickname'] ?? ($param['agent_nickname'] ?? ($param['staff_nickname'] ?? '')))) ?: ('代理' . substr(md5($externalAgentId), 0, 6));
+        $nickname = trim((string)($param['nickname'] ?? ($param['agent_nickname'] ?? ($param['staff_nickname'] ?? ''))));
         $avatar = trim((string)($param['avatar'] ?? ($param['agent_avatar'] ?? ($param['staff_avatar'] ?? ''))));
 
         Db::startTrans();
@@ -295,7 +295,7 @@ class Api
         return success('', $this->buildPlatformConfig($platform));
     }
 
-    // 保存当前三方平台的默认客服、欢迎语和短码有效期。
+    // 保存当前三方平台的默认客服、默认头像、欢迎语和短码有效期。
     public function savePlatformConfig()
     {
         $platform = $this->getThirdPlatform();
@@ -320,6 +320,15 @@ class Api
         }
         if (array_key_exists('code_ttl', $param)) {
             $update['code_ttl'] = $this->normalizeCodeTtl($param['code_ttl']);
+        }
+        foreach (['default_customer_avatar', 'default_agent_avatar'] as $avatarField) {
+            if (array_key_exists($avatarField, $param)) {
+                $avatar = trim((string)$param[$avatarField]);
+                if (strlen($avatar) > 255) {
+                    return warning('默认头像地址不能超过255个字符');
+                }
+                $update[$avatarField] = $avatar;
+            }
         }
         if (array_key_exists('allowed_origins', $param)) {
             $extra = $this->normalizePlatformExtra($platform['extra'] ?? []);
@@ -443,6 +452,12 @@ class Api
         }
         $update['update_time'] = time();
         $map->save($update);
+        if (array_key_exists('nickname', $update) || array_key_exists('avatar', $update)) {
+            $user = User::where(['user_id' => $map['user_id'], 'status' => 1])->find();
+            if ($user) {
+                $this->syncThirdUserProfileUpdate($user, $update);
+            }
+        }
         $data = $map->toArray();
         $this->appendPlatformUserInfo($data);
         return success(lang('system.editOk'), $data);
@@ -450,6 +465,8 @@ class Api
 
     protected function findOrCreateThirdUser($platform, $externalUserId, $nickname, $avatar, $userType, $tags, $extra, $strictUserType = false)
     {
+        $nickname = trim((string)$nickname);
+        $avatar = trim((string)$avatar);
         $mapQuery = ThirdUserMap::where([
             'platform_id' => $platform['id'],
             'external_user_id' => $externalUserId,
@@ -464,6 +481,8 @@ class Api
             if (!$user) {
                 throw new \Exception('映射用户不存在或已禁用');
             }
+            $nickname = $this->resolveThirdNickname($externalUserId, $userType, $nickname, $user['realname'] ?? '', $map['nickname'] ?? '');
+            $avatar = $this->resolveThirdAvatar($platform, $userType, $avatar, $user['avatar'] ?? '', $map['avatar'] ?? '');
             $map->save([
                 'nickname' => $nickname,
                 'avatar' => $avatar,
@@ -479,6 +498,8 @@ class Api
         $account = $this->makeThirdAccount($platform['id'], $externalUserId, $strictUserType ? $userType : '');
         $user = User::where('account', $account)->find();
         $isNewUser = false;
+        $nickname = $this->resolveThirdNickname($externalUserId, $userType, $nickname, $user['realname'] ?? '', '');
+        $avatar = $this->resolveThirdAvatar($platform, $userType, $avatar, $user['avatar'] ?? '', '');
         if (!$user) {
             $salt = \utils\Str::random(4);
             $data = [
@@ -486,7 +507,7 @@ class Api
                 'realname' => $nickname,
                 'password' => password_hash_tp(\utils\Str::random(16), $salt),
                 'salt' => $salt,
-                'avatar' => mb_strlen($avatar) <= 128 ? $avatar : '',
+                'avatar' => mb_strlen($avatar) <= 255 ? $avatar : '',
                 'register_ip' => $this->request->ip(),
                 'name_py' => pinyin_sentence($nickname),
                 'status' => 1,
@@ -496,6 +517,8 @@ class Api
             $isNewUser = true;
         } elseif ((int)$user['status'] !== 1) {
             throw new \Exception('用户已禁用');
+        } else {
+            $this->syncThirdUserProfile($user, $nickname, $avatar);
         }
         ThirdUserMap::create([
             'platform_id' => $platform['id'],
@@ -510,6 +533,55 @@ class Api
             'update_time' => time(),
         ]);
         return [$user, $isNewUser];
+    }
+
+    protected function resolveThirdNickname($externalUserId, $userType, $nickname, $userNickname = '', $mapNickname = '')
+    {
+        $nickname = trim((string)$nickname);
+        if ($nickname !== '') {
+            return $nickname;
+        }
+        $mapNickname = trim((string)$mapNickname);
+        if ($mapNickname !== '') {
+            return $mapNickname;
+        }
+        $userNickname = trim((string)$userNickname);
+        if ($userNickname !== '') {
+            return $userNickname;
+        }
+        $prefix = $this->isAgentUserType($userType) ? '代理' : '用户';
+        return $prefix . substr(md5($externalUserId), 0, 6);
+    }
+
+    protected function resolveThirdAvatar($platform, $userType, $avatar, $userAvatar = '', $mapAvatar = '')
+    {
+        $avatar = trim((string)$avatar);
+        if ($avatar !== '') {
+            return $avatar;
+        }
+        $userAvatar = trim((string)$userAvatar);
+        if ($userAvatar !== '') {
+            return $userAvatar;
+        }
+        $mapAvatar = trim((string)$mapAvatar);
+        if ($mapAvatar !== '') {
+            return $mapAvatar;
+        }
+        return $this->getPlatformDefaultAvatar($platform, $userType);
+    }
+
+    protected function getPlatformDefaultAvatar($platform, $userType)
+    {
+        if ($platform instanceof ThirdPlatform) {
+            $platform = $platform->toArray();
+        }
+        $field = $this->isAgentUserType($userType) ? 'default_agent_avatar' : 'default_customer_avatar';
+        return trim((string)($platform[$field] ?? ''));
+    }
+
+    protected function isAgentUserType($userType)
+    {
+        return in_array((string)$userType, ['2', 'agent', 'staff'], true);
     }
 
     protected function touchThirdUserMap($platformId, $externalUserId, $userType = '')
@@ -535,8 +607,30 @@ class Api
             $update['realname'] = $nickname;
             $update['name_py'] = pinyin_sentence($nickname);
         }
-        if ($avatar && mb_strlen($avatar) <= 128 && $avatar !== $user['avatar']) {
+        if ($avatar && mb_strlen($avatar) <= 255 && $avatar !== $user['avatar']) {
             $update['avatar'] = $avatar;
+        }
+        if ($update) {
+            $update['update_time'] = time();
+            $user->save($update);
+        }
+    }
+
+    protected function syncThirdUserProfileUpdate($user, $data)
+    {
+        $update = [];
+        if (array_key_exists('nickname', $data)) {
+            $nickname = trim((string)$data['nickname']);
+            if ($nickname !== '' && $nickname !== $user['realname']) {
+                $update['realname'] = $nickname;
+                $update['name_py'] = pinyin_sentence($nickname);
+            }
+        }
+        if (array_key_exists('avatar', $data)) {
+            $avatar = trim((string)$data['avatar']);
+            if (mb_strlen($avatar) <= 255 && $avatar !== (string)$user['avatar']) {
+                $update['avatar'] = $avatar;
+            }
         }
         if ($update) {
             $update['update_time'] = time();
@@ -587,6 +681,8 @@ class Api
             'app_id' => $platform['app_id'],
             'default_cs_uid' => (int)($platform['default_cs_uid'] ?? 0),
             'default_cs_user' => $this->formatUserInfo((int)($platform['default_cs_uid'] ?? 0)),
+            'default_customer_avatar' => $platform['default_customer_avatar'] ?? '',
+            'default_agent_avatar' => $platform['default_agent_avatar'] ?? '',
             'welcome' => $platform['welcome'] ?? '',
             'effective_welcome' => $this->getWelcome($platform),
             'code_ttl' => $this->normalizeCodeTtl($platform['code_ttl'] ?? 120),
