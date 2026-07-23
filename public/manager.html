@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>代理会话管理</title>
-  <link rel="stylesheet" href="assets/css/manager-chat.css?v=20260723-2">
+  <link rel="stylesheet" href="assets/css/manager-chat.css?v=20260723-4">
 </head>
 <body>
   <div id="manager-app" class="manager-app">
@@ -23,7 +23,7 @@
           <div class="panel-title">代理</div>
           <div class="panel-search">
             <input id="agent-search-input" class="panel-search-input" type="search" maxlength="100" placeholder="搜索代理名称或编号">
-            <button id="agent-search-button" class="panel-search-button" type="button">搜索</button>
+            <button id="agent-search-button" class="panel-search-button" type="button" title="搜索" aria-label="搜索"><img class="search-icon" src="/static/pdfjs/web/images/toolbarButton-search.svg" alt=""></button>
           </div>
           <button id="all-agents" class="agent-filter active" type="button">全部代理</button>
           <div id="agent-list" class="agent-list"></div>
@@ -34,7 +34,7 @@
             <div id="conversation-title" class="panel-title">全部会话</div>
             <div class="panel-search">
               <input id="customer-search-input" class="panel-search-input" type="search" maxlength="100" placeholder="搜索客户名称或编号">
-              <button id="customer-search-button" class="panel-search-button" type="button">搜索</button>
+              <button id="customer-search-button" class="panel-search-button" type="button" title="搜索" aria-label="搜索"><img class="search-icon" src="/static/pdfjs/web/images/toolbarButton-search.svg" alt=""></button>
             </div>
           </div>
           <div id="conversation-list" class="conversation-list"></div>
@@ -63,6 +63,6 @@
     </div>
     <div id="toast" class="toast" hidden></div>
   </div>
-  <script src="assets/js/manager-chat.js?v=20260723-3"></script>
+  <script src="assets/js/manager-chat.js?v=20260723-4"></script>
 </body>
 </html>

@@ -101,11 +101,16 @@
     if (!value) return '';
     var date = new Date(Number(value));
     if (isNaN(date.getTime())) return '';
-    var now = new Date();
-    var sameDay = date.toDateString() === now.toDateString();
-    return sameDay
-      ? String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0')
-      : (date.getMonth() + 1) + '/' + date.getDate();
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' +
+      String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+  }
+
+  function formatConversationTime(value) {
+    if (!value) return '';
+    var date = new Date(Number(value));
+    if (isNaN(date.getTime())) return '';
+    return String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' +
+      String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
   }
 
   function avatar(user, extraClass) {
@@ -162,7 +167,7 @@
         avatar(chat.customer) + '<span class="conversation-main"><span class="conversation-name">' + escapeHtml(chat.customer.displayName) + '</span>' +
         '<span class="conversation-agent">代理：' + escapeHtml(chat.agent.displayName) + '</span>' +
         '<span class="conversation-last">' + escapeHtml(messagePreview(chat.last_message)) + '</span></span>' +
-        '<span class="conversation-time">' + formatTime(chat.last_send_time) + (unread ? '<b class="unread">' + (unread > 99 ? '99+' : unread) + '</b>' : '') + '</span></button>';
+        '<span class="conversation-time">' + formatConversationTime(chat.last_send_time) + (unread ? '<b class="unread">' + (unread > 99 ? '99+' : unread) + '</b>' : '') + '</span></button>';
     }).join('');
     Array.prototype.forEach.call(dom.conversationList.querySelectorAll('[data-session-id]'), function (button) {
       button.addEventListener('click', function () { selectChat(Number(button.getAttribute('data-session-id'))); });
