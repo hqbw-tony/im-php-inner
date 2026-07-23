@@ -11,6 +11,7 @@
     customerKeyword: '',
     selectedChat: null,
     pendingFile: null,
+    uploadToken: 0,
     pollTimer: 0
   };
 
@@ -278,9 +279,11 @@
   }
 
   function clearPendingFile() {
+    state.uploadToken += 1;
     state.pendingFile = null;
     dom.uploadName.textContent = '';
     dom.uploadInput.value = '';
+    dom.clearUploadButton.hidden = true;
   }
 
   function createMessageId() {
@@ -292,9 +295,12 @@
 
   function uploadFile(file) {
     if (!file) return;
+    var uploadToken = ++state.uploadToken;
+    state.pendingFile = null;
     var formData = new FormData();
     formData.append('file', file);
     dom.uploadName.textContent = '正在上传 ' + file.name;
+    dom.clearUploadButton.hidden = false;
     fetch('/common/upload/uploadFile', {
       method: 'POST',
       headers: {
@@ -305,6 +311,7 @@
       body: formData,
       credentials: 'same-origin'
     }).then(function (response) { return parseJsonResponse(response, '/common/upload/uploadFile'); }).then(function (response) {
+      if (uploadToken !== state.uploadToken) return;
       if (response.code !== 0) throw new Error(response.msg || '文件上传失败');
       var fileInfo = response.data || {};
       var typeMap = { 2: 'image', 4: 'video' };
@@ -318,6 +325,7 @@
       };
       dom.uploadName.textContent = state.pendingFile.file_name;
     }).catch(function (error) {
+      if (uploadToken !== state.uploadToken) return;
       clearPendingFile();
       showToast(error.message);
     });
@@ -398,6 +406,7 @@
     });
     dom.uploadButton.addEventListener('click', function () { dom.uploadInput.click(); });
     dom.uploadInput.addEventListener('change', function () { uploadFile(dom.uploadInput.files[0]); });
+    dom.clearUploadButton.addEventListener('click', clearPendingFile);
   }
 
   function initializeDom() {
@@ -423,6 +432,7 @@
     dom.uploadButton = $('upload-button');
     dom.uploadInput = $('upload-input');
     dom.uploadName = $('upload-name');
+    dom.clearUploadButton = $('clear-upload-button');
     dom.refreshButton = $('refresh-button');
     dom.logoutButton = $('logout-button');
     dom.toast = $('toast');
