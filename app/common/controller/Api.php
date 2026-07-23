@@ -3,7 +3,7 @@
 namespace app\common\controller;
 
 use think\App;
-use app\common\model\{ThirdPlatform,ThirdUserMap};
+use app\common\model\{ThirdPlatform,ThirdUserMap,ThirdChatSession};
 use app\enterprise\model\{User,Friend,Message};
 use think\facade\Cache;
 use think\facade\Db;
@@ -214,6 +214,19 @@ class Api
             Friend::acceptPair((int)$user['user_id'], (int)$agent['user_id'], time());
             $this->touchThirdUserMap((int)$platform['id'], $externalUserId, '1');
             $this->touchThirdUserMap((int)$platform['id'], $externalAgentId, '2');
+            $customerMap = ThirdUserMap::where([
+                'platform_id' => $platform['id'],
+                'external_user_id' => $externalUserId,
+                'user_type' => '1',
+                'delete_time' => 0,
+            ])->findOrEmpty();
+            $agentMap = ThirdUserMap::where([
+                'platform_id' => $platform['id'],
+                'external_user_id' => $externalAgentId,
+                'user_type' => '2',
+                'delete_time' => 0,
+            ])->findOrEmpty();
+            ThirdChatSession::ensurePair((int)$platform['id'], $customerMap->toArray(), $agentMap->toArray());
             Db::commit();
         } catch (\Exception $e) {
             Db::rollback();
@@ -282,6 +295,52 @@ class Api
             'im_user_id' => (int)$agent['user_id'],
             'platform_id' => (int)$platform['id'],
             'user_type' => '2',
+        ]);
+    }
+
+    // 三方平台总后台一键打开 IM，总后台账号仅能管辖自身平台的代理会话。
+    public function managerSession()
+    {
+        $platform = $this->getThirdPlatform();
+        if (!$platform) {
+            return warning('请使用三方平台AppID调用总后台登录接口');
+        }
+        $param = $this->request->param();
+        $externalManagerId = trim((string)($param['external_manager_id'] ?? ($param['external_admin_id'] ?? '')));
+        if ($externalManagerId === '') {
+            return warning('请传入总后台管理员ID');
+        }
+        $nickname = trim((string)($param['nickname'] ?? ($param['manager_nickname'] ?? ($param['admin_nickname'] ?? ''))));
+        $avatar = trim((string)($param['avatar'] ?? ($param['manager_avatar'] ?? ($param['admin_avatar'] ?? ''))));
+
+        Db::startTrans();
+        try {
+            [$manager] = $this->findOrCreateThirdUser(
+                $platform,
+                $externalManagerId,
+                $nickname,
+                $avatar,
+                '3',
+                $param['tags'] ?? ($param['manager_tags'] ?? null),
+                $param['extra'] ?? ($param['manager_extra'] ?? null),
+                true
+            );
+            $this->touchThirdUserMap((int)$platform['id'], $externalManagerId, '3');
+            Db::commit();
+        } catch (\Exception $e) {
+            Db::rollback();
+            return error($e->getMessage());
+        }
+
+        $ttl = $this->normalizeCodeTtl($platform['code_ttl'] ?? 120);
+        [$code, $url] = $this->makeManagerLoginUrl((int)$manager['user_id'], $ttl);
+        return success('', [
+            'url' => $url,
+            'token' => $code,
+            'expires_in' => $ttl,
+            'im_user_id' => (int)$manager['user_id'],
+            'platform_id' => (int)$platform['id'],
+            'user_type' => '3',
         ]);
     }
 
@@ -549,7 +608,7 @@ class Api
         if ($userNickname !== '') {
             return $userNickname;
         }
-        $prefix = $this->isAgentUserType($userType) ? '代理' : '用户';
+        $prefix = (string)$userType === '3' ? '管理员' : ($this->isAgentUserType($userType) ? '代理' : '用户');
         return $prefix . substr(md5($externalUserId), 0, 6);
     }
 
@@ -863,6 +922,19 @@ class Api
         return [$code, $this->agentChatHostPath('/index.html#/login') . '?' . $query];
     }
 
+    protected function makeManagerLoginUrl($userId, $ttl)
+    {
+        $loginUser = $this->buildLoginUserInfo($userId);
+        $code = $this->makeLoginCode();
+        Cache::set('third_login:' . $code, $loginUser, $ttl);
+        $query = http_build_query([
+            'token' => $code,
+            'embed' => 1,
+            'manager' => 1,
+        ]);
+        return [$code, $this->managerChatHostPath('/manager.html') . '?' . $query];
+    }
+
     protected function makeLoginCode()
     {
         return rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
@@ -885,6 +957,18 @@ class Api
     protected function agentChatHostPath($path)
     {
         $host = (string)config('app.agent_chat_host', '');
+        if ($host === '') {
+            $host = (string)getMainHost();
+        }
+        return rtrim($host, '/') . '/' . ltrim($path, '/');
+    }
+
+    protected function managerChatHostPath($path)
+    {
+        $host = (string)config('app.manager_chat_host', '');
+        if ($host === '') {
+            $host = (string)config('app.agent_chat_host', '');
+        }
         if ($host === '') {
             $host = (string)getMainHost();
         }

@@ -196,6 +196,8 @@ HOST = {$domain}
 CUSTOMER_CHAT_HOST =
 # 代理客服前端地址，不填则使用 HOST
 AGENT_CHAT_HOST =
+# 三方平台总后台聊天前端地址，不填则使用 AGENT_CHAT_HOST
+MANAGER_CHAT_HOST =
 DEFAULT_TIMEZONE = Asia/Shanghai
 ID = {$random5}
 SECRET = {$random6}

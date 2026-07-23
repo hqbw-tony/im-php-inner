@@ -3,6 +3,7 @@
 namespace app\enterprise\controller;
 
 use app\BaseController;
+use app\common\model\{ThirdPlatform, ThirdUserMap, ThirdChatSession};
 use think\facade\Session;
 use think\facade\Db;
 use app\enterprise\model\{User, Message, GroupUser, Friend,Group,ChatDelog};
@@ -30,6 +31,200 @@ class Im extends BaseController
         $count=Friend::where(['status'=>2,'friend_user_id'=>$this->uid])->count();
         $time=Friend::getApplyLastTime($this->uid);
         return success('', $data,$count,$time*1000);
+    }
+
+    /**
+     * 总后台获取当前三方平台的代理列表。
+     */
+    public function getManagerAgentList()
+    {
+        $context = $this->getManagerContext();
+        if (!$context) {
+            return warning('无权限访问三方平台总后台');
+        }
+        $platformId = (int)$context['platform']['id'];
+        $maps = ThirdUserMap::where([
+            'platform_id' => $platformId,
+            'user_type' => '2',
+            'delete_time' => 0,
+        ])->order('id', 'desc')->select()->toArray();
+        $users = $this->getManagerUsers(array_column($maps, 'user_id'));
+        $sessionCount = ThirdChatSession::where([
+            'platform_id' => $platformId,
+            'status' => 1,
+        ])->group('agent_user_id')->column('COUNT(*)', 'agent_user_id');
+        $data = [];
+        foreach ($maps as $map) {
+            $userId = (int)$map['user_id'];
+            if (empty($users[$userId])) {
+                continue;
+            }
+            $data[] = array_merge($this->managerUserPayload($users[$userId]), [
+                'external_agent_id' => (string)$map['external_user_id'],
+                'session_count' => (int)($sessionCount[$userId] ?? 0),
+            ]);
+        }
+        return success('', $data, count($data));
+    }
+
+    /**
+     * 总后台获取全部代理或指定代理的客户会话列表。
+     */
+    public function getManagerChatList()
+    {
+        $context = $this->getManagerContext();
+        if (!$context) {
+            return warning('无权限访问三方平台总后台');
+        }
+        $platformId = (int)$context['platform']['id'];
+        $agentUserId = (int)$this->request->param('agent_user_id', 0);
+        if ($agentUserId && !$this->getManagerAgentMap($platformId, $agentUserId)) {
+            return warning('代理不属于当前三方平台');
+        }
+
+        $query = ThirdChatSession::where([
+            'platform_id' => $platformId,
+            'status' => 1,
+        ]);
+        if ($agentUserId) {
+            $query->where('agent_user_id', $agentUserId);
+        }
+        $sessions = $query->order('last_msg_time desc,id desc')->select()->toArray();
+        if (!$sessions) {
+            return success('', [], 0);
+        }
+
+        $userIds = array_merge(array_column($sessions, 'customer_user_id'), array_column($sessions, 'agent_user_id'));
+        $users = $this->getManagerUsers($userIds);
+        $chatIds = array_values(array_filter(array_column($sessions, 'chat_identify')));
+        $lastMessages = Message::where('chat_identify', 'in', $chatIds)
+            ->where('is_group', 0)
+            ->where('status', 1)
+            ->where('is_last', 1)
+            ->select()
+            ->toArray();
+        $lastMessageMap = [];
+        foreach ($lastMessages as $message) {
+            $lastMessageMap[$message['chat_identify']] = $message;
+        }
+        $unreadRows = Db::name('message')
+            ->field('chat_identify, to_user, COUNT(*) AS unread')
+            ->where('chat_identify', 'in', $chatIds)
+            ->where('is_group', 0)
+            ->where('is_read', 0)
+            ->where('status', 1)
+            ->group('chat_identify,to_user')
+            ->select()
+            ->toArray();
+        $unreadMap = [];
+        foreach ($unreadRows as $unreadRow) {
+            $unreadMap[$unreadRow['chat_identify'] . ':' . $unreadRow['to_user']] = (int)$unreadRow['unread'];
+        }
+
+        $data = [];
+        foreach ($sessions as $session) {
+            $customerId = (int)$session['customer_user_id'];
+            $agentId = (int)$session['agent_user_id'];
+            if (empty($users[$customerId]) || empty($users[$agentId])) {
+                continue;
+            }
+            $lastMessage = $lastMessageMap[$session['chat_identify']] ?? null;
+            $lastTime = (int)($lastMessage['create_time'] ?? $session['last_msg_time']);
+            $data[] = [
+                'session_id' => (int)$session['id'],
+                'chat_identify' => $session['chat_identify'],
+                'agent' => array_merge($this->managerUserPayload($users[$agentId]), [
+                    'external_agent_id' => (string)$session['external_agent_id'],
+                ]),
+                'customer' => array_merge($this->managerUserPayload($users[$customerId]), [
+                    'external_user_id' => (string)$session['external_user_id'],
+                ]),
+                'last_message' => $lastMessage ? $this->managerMessageSummary($lastMessage) : null,
+                'last_send_time' => $lastTime * 1000,
+                'unread' => (int)($unreadMap[$session['chat_identify'] . ':' . $agentId] ?? 0),
+            ];
+        }
+        usort($data, function ($left, $right) {
+            return $right['last_send_time'] <=> $left['last_send_time'];
+        });
+        return success('', $data, count($data));
+    }
+
+    /**
+     * 总后台查看代理与客户的原私聊记录，同时将该代理的未读消息设为已读。
+     */
+    public function getManagerMessageList()
+    {
+        $context = $this->getManagerContext();
+        if (!$context) {
+            return warning('无权限访问三方平台总后台');
+        }
+        $session = $this->getManagerSession((int)$context['platform']['id']);
+        if (!$session) {
+            return warning('会话不存在或不属于当前三方平台');
+        }
+        $this->markManagerSessionRead($session);
+
+        $limit = max(1, min(100, (int)$this->request->param('limit', 30)));
+        $lastId = (int)$this->request->param('last_id', 0);
+        $messageMap = [
+            'chat_identify' => $session['chat_identify'],
+            'is_group' => 0,
+            'status' => 1,
+        ];
+        $query = Message::where($messageMap);
+        $total = Message::where($messageMap)->count();
+        if ($lastId) {
+            $query->where('msg_id', '<', $lastId);
+        }
+        $messages = $query->order('msg_id desc')->limit($limit)->select()->toArray();
+        $messages = array_reverse($messages);
+        return success('', $this->formatManagerMessages($messages), $total);
+    }
+
+    /**
+     * 总后台以已选代理的身份向当前客户回复。
+     */
+    public function managerSendMessage()
+    {
+        $context = $this->getManagerContext();
+        if (!$context) {
+            return warning('无权限访问三方平台总后台');
+        }
+        $session = $this->getManagerSession((int)$context['platform']['id']);
+        if (!$session) {
+            return warning('会话不存在或不属于当前三方平台');
+        }
+        if (!$this->hasManagerPairFriend($session)) {
+            return warning('代理与客户不是双向好友，无法代回复');
+        }
+
+        $param = $this->request->param();
+        $type = trim((string)($param['type'] ?? 'text'));
+        if (!in_array($type, array_merge(['text'], $this->fileType), true)) {
+            return warning('不支持的消息类型');
+        }
+        if (trim((string)($param['content'] ?? '')) === '') {
+            return warning('请传入消息内容');
+        }
+        $agent = User::where(['user_id' => $session['agent_user_id'], 'status' => 1])->find();
+        if (!$agent) {
+            return warning('代理账号不存在或已禁用');
+        }
+        $param['id'] = trim((string)($param['id'] ?? '')) ?: \utils\Str::getUuid();
+        $param['user_id'] = (int)$agent['user_id'];
+        $param['toContactId'] = (int)$session['customer_user_id'];
+        $param['is_group'] = 0;
+        $param['type'] = $type;
+        $param['sendTime'] = time() * 1000;
+        $param['at'] = [];
+        $param['fromUser'] = $this->managerUserPayload($agent->toArray());
+        $message = new Message();
+        $data = $message->sendAsUser((int)$agent['user_id'], $param, $this->globalConfig);
+        if (!$data) {
+            return warning($message->getError() ?: '消息发送失败', $message->getErrorData());
+        }
+        return success('', $data);
     }
 
     // 获取好友列表
@@ -457,6 +652,176 @@ class Im extends BaseController
             $data = $this->recombileMsg($data, false,$groupManage);  
         }
         return success('', $data);
+    }
+
+    /**
+     * 校验当前 JWT 是否为三方平台已启用的总后台账号。
+     */
+    protected function getManagerContext()
+    {
+        if (!$this->uid) {
+            return null;
+        }
+        $managerMap = ThirdUserMap::where([
+            'user_id' => $this->uid,
+            'user_type' => '3',
+            'delete_time' => 0,
+        ])->find();
+        if (!$managerMap) {
+            return null;
+        }
+        $platform = ThirdPlatform::where([
+            'id' => $managerMap['platform_id'],
+            'status' => 1,
+            'delete_time' => 0,
+        ])->find();
+        $user = User::where(['user_id' => $this->uid, 'status' => 1])->find();
+        if (!$platform || !$user) {
+            return null;
+        }
+        return [
+            'platform' => $platform->toArray(),
+            'manager' => $managerMap->toArray(),
+        ];
+    }
+
+    protected function getManagerAgentMap($platformId, $agentUserId)
+    {
+        return ThirdUserMap::where([
+            'platform_id' => (int)$platformId,
+            'user_id' => (int)$agentUserId,
+            'user_type' => '2',
+            'delete_time' => 0,
+        ])->find();
+    }
+
+    protected function getManagerSession($platformId)
+    {
+        $sessionId = (int)$this->request->param('session_id', 0);
+        if (!$sessionId) {
+            return null;
+        }
+        return ThirdChatSession::where([
+            'id' => $sessionId,
+            'platform_id' => (int)$platformId,
+            'status' => 1,
+        ])->find();
+    }
+
+    protected function getManagerUsers(array $userIds)
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$userIds) {
+            return [];
+        }
+        $users = User::where('user_id', 'in', $userIds)->where('status', 1)->select()->toArray();
+        return array_column($users, null, 'user_id');
+    }
+
+    protected function managerUserPayload(array $user)
+    {
+        $userId = (int)($user['user_id'] ?? 0);
+        $name = (string)($user['realname'] ?? '');
+        return [
+            'id' => $userId,
+            'user_id' => $userId,
+            'im_user_id' => $userId,
+            'realname' => $name,
+            'displayName' => $name,
+            'avatar' => avatarUrl($user['avatar'] ?? '', $name, $userId),
+        ];
+    }
+
+    protected function managerMessageSummary(array $message)
+    {
+        $content = str_encipher($message['content'] ?? '', false);
+        if (in_array($message['type'] ?? '', $this->fileType, true)) {
+            $content = getFileUrl($content);
+        }
+        return [
+            'msg_id' => (int)$message['msg_id'],
+            'type' => $message['type'],
+            'content' => Message::renderMessageContent($message, $content, $this->uid),
+            'from_user' => (int)$message['from_user'],
+            'send_time' => (int)$message['create_time'] * 1000,
+        ];
+    }
+
+    protected function formatManagerMessages(array $messages)
+    {
+        if (!$messages) {
+            return [];
+        }
+        $users = $this->getManagerUsers(array_column($messages, 'from_user'));
+        $data = [];
+        foreach ($messages as $message) {
+            $sender = $users[(int)$message['from_user']] ?? [];
+            $content = str_encipher($message['content'] ?? '', false);
+            $preview = '';
+            $extUrl = '';
+            if (in_array($message['type'] ?? '', $this->fileType, true)) {
+                $content = getFileUrl($content);
+                $preview = previewUrl($content);
+                $extUrl = getExtUrl($content);
+            }
+            $data[] = [
+                'msg_id' => (int)$message['msg_id'],
+                'id' => $message['id'],
+                'status' => 'succeed',
+                'type' => $message['type'],
+                'sendTime' => (int)$message['create_time'] * 1000,
+                'content' => Message::renderMessageContent($message, $content, $this->uid),
+                'preview' => $preview,
+                'download' => $message['file_id'] ? getMainHost() . '/filedown/' . encryptIds($message['file_id']) : '',
+                'is_read' => (int)$message['is_read'],
+                'is_group' => 0,
+                'toContactId' => (int)$message['to_user'],
+                'from_user' => (int)$message['from_user'],
+                'file_id' => (int)$message['file_id'],
+                'file_cate' => (int)$message['file_cate'],
+                'fileName' => $message['file_name'],
+                'fileSize' => (int)$message['file_size'],
+                'fromUser' => $sender ? $this->managerUserPayload($sender) : [],
+                'extUrl' => $extUrl,
+                'extends' => is_string($message['extends']) ? json_decode($message['extends'], true) : $message['extends'],
+            ];
+        }
+        return $data;
+    }
+
+    /**
+     * 总后台阅读与代理阅读共用原消息已读状态，并通知客户端。
+     */
+    protected function markManagerSessionRead($session)
+    {
+        $updated = Message::where([
+            'chat_identify' => $session['chat_identify'],
+            'to_user' => $session['agent_user_id'],
+            'is_group' => 0,
+            'is_read' => 0,
+            'status' => 1,
+        ])->update(['is_read' => 1]);
+        if ($updated) {
+            wsSendMsg((int)$session['customer_user_id'], 'readAll', [
+                'toContactId' => (int)$session['agent_user_id'],
+            ]);
+        }
+    }
+
+    protected function hasManagerPairFriend($session)
+    {
+        $agentId = (int)$session['agent_user_id'];
+        $customerId = (int)$session['customer_user_id'];
+        return (bool)Friend::where([
+            'create_user' => $agentId,
+            'friend_user_id' => $customerId,
+            'status' => 1,
+        ])->find()
+            && (bool)Friend::where([
+                'create_user' => $customerId,
+                'friend_user_id' => $agentId,
+                'status' => 1,
+            ])->find();
     }
 
     protected function recombileMsg($list,$isPagination=true,$manage=[])

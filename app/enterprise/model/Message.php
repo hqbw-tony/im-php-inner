@@ -6,6 +6,7 @@
 namespace app\enterprise\model;
 
 use app\BaseModel;
+use app\common\model\ThirdChatSession;
 use think\facade\Db;
 use think\facade\Cache;
 class Message extends BaseModel
@@ -338,6 +339,22 @@ class Message extends BaseModel
     }
 
     // 发送消息
+    /**
+     * 在上层完成授权校验后，以指定 IM 用户身份发送私聊消息。
+     */
+    public function sendAsUser($userId, $param, $globalConfig = false)
+    {
+        $originUid = self::$uid;
+        try {
+            // 当前 JWT 属于总后台管理员，不能作为客户看到的发件人。
+            self::$uid = null;
+            $param['user_id'] = (int)$userId;
+            return $this->sendMessage($param, $globalConfig);
+        } finally {
+            self::$uid = $originUid;
+        }
+    }
+
     public function sendMessage($param,$globalConfig=false){
         $is_group = $param['is_group'] ?? 0;
         $uid=self::$uid ? : ($param['user_id'] ?? 1);
@@ -536,6 +553,13 @@ class Message extends BaseModel
         $message=new self();
         $message->update(['is_last'=>0],['chat_identify'=>$chat_identify]);
         $message->save($data);
+        if (!$is_group && (int)$toContactId > 0) {
+            try {
+                ThirdChatSession::touchByMessage((int)$param['user_id'], (int)$toContactId, (int)$message->msg_id, (int)$data['create_time']);
+            } catch (\Throwable $e) {
+                // 会话索引异常不影响原有 IM 消息发送。
+            }
+        }
         
         // 拼接消息推送
         $type=$is_group?'group':'simple';

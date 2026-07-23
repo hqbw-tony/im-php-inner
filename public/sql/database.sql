@@ -431,3 +431,23 @@ CREATE TABLE IF NOT EXISTS `yu_third_user_map` (
   KEY `user_id` (`user_id`),
   KEY `user_type` (`user_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='third user map table';
+
+CREATE TABLE IF NOT EXISTS `yu_third_chat_session` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `platform_id` int(11) NOT NULL DEFAULT '0' COMMENT 'third platform id',
+  `customer_user_id` int(11) NOT NULL DEFAULT '0' COMMENT 'customer IM user id',
+  `agent_user_id` int(11) NOT NULL DEFAULT '0' COMMENT 'agent IM user id',
+  `external_user_id` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'external customer id',
+  `external_agent_id` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'external agent id',
+  `chat_identify` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'private chat identifier',
+  `last_msg_id` int(11) NOT NULL DEFAULT '0' COMMENT 'last message id',
+  `last_msg_time` int(11) NOT NULL DEFAULT '0' COMMENT 'last message time',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'status 1 enabled 0 disabled',
+  `create_time` int(11) NOT NULL DEFAULT '0',
+  `update_time` int(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `platform_customer_agent` (`platform_id`,`customer_user_id`,`agent_user_id`),
+  KEY `platform_agent_last_msg` (`platform_id`,`agent_user_id`,`last_msg_time`),
+  KEY `platform_last_msg` (`platform_id`,`last_msg_time`),
+  KEY `chat_identify` (`chat_identify`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='third platform customer agent chat session';

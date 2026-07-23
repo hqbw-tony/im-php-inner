@@ -14,6 +14,8 @@ return [
     'customer_chat_host' => env('app.customer_chat_host', ''),
     // 代理客服前端地址，不配置时回退到应用地址
     'agent_chat_host'  => env('app.agent_chat_host', ''),
+    // 三方平台总后台聊天前端地址，不配置时使用代理客服前端地址
+    'manager_chat_host' => env('app.manager_chat_host', ''),
     // 应用的命名空间
     'app_namespace'    => '',
     // 是否启用路由

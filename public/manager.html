@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>代理会话管理</title>
+  <link rel="stylesheet" href="assets/css/manager-chat.css">
+</head>
+<body>
+  <div id="manager-app" class="manager-app">
+    <div id="login-state" class="page-state">正在登录...</div>
+    <div id="workspace" class="workspace" hidden>
+      <header class="topbar">
+        <div class="brand">代理会话管理</div>
+        <div class="topbar-actions">
+          <span id="manager-name" class="manager-name"></span>
+          <button id="refresh-button" class="icon-button" type="button" title="刷新">&#8635;</button>
+          <button id="logout-button" class="text-button" type="button">退出</button>
+        </div>
+      </header>
+      <main class="manager-layout">
+        <aside class="agent-panel">
+          <div class="panel-title">代理</div>
+          <button id="all-agents" class="agent-filter active" type="button">全部代理</button>
+          <div id="agent-list" class="agent-list"></div>
+        </aside>
+        <section class="conversation-panel">
+          <div id="conversation-title" class="panel-title">全部会话</div>
+          <div id="conversation-list" class="conversation-list"></div>
+          <div id="conversation-empty" class="empty-state" hidden>暂无会话</div>
+        </section>
+        <section class="chat-panel">
+          <div id="chat-empty" class="chat-empty">选择一个会话查看消息</div>
+          <div id="chat-view" class="chat-view" hidden>
+            <div id="chat-header" class="chat-header"></div>
+            <div id="message-list" class="message-list"></div>
+            <div class="composer">
+              <input id="upload-input" type="file" hidden>
+              <div class="composer-tools">
+                <button id="upload-button" class="icon-button" type="button" title="上传文件">+</button>
+                <span id="upload-name" class="upload-name"></span>
+              </div>
+              <textarea id="message-input" rows="3" maxlength="2048" placeholder="输入消息"></textarea>
+              <div class="composer-actions">
+                <span id="send-hint" class="send-hint">Ctrl + Enter 发送</span>
+                <button id="send-button" class="send-button" type="button">发送</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+  <script src="assets/js/manager-chat.js"></script>
+</body>
+</html>
