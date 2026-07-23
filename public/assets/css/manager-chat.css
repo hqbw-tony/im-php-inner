@@ -22,7 +22,7 @@ body {
   background: var(--page);
 }
 
-button, textarea { font: inherit; }
+button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 
 .page-state {
@@ -62,6 +62,14 @@ button { cursor: pointer; }
 .agent-panel { overflow: auto; padding: 14px 10px; }
 .conversation-panel { display: flex; overflow: hidden; flex-direction: column; }
 .panel-title { padding: 0 12px 10px; color: #52606d; font-size: 12px; font-weight: 600; }
+.panel-search { display: flex; padding: 0 2px 10px; gap: 6px; }
+.panel-search-input { width: 100%; min-width: 0; height: 32px; padding: 5px 8px; border: 1px solid #ccd5df; border-radius: 3px; color: var(--text); outline: 0; }
+.panel-search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(22, 119, 210, .12); }
+.panel-search-button { height: 32px; padding: 0 10px; border: 1px solid var(--primary); border-radius: 3px; color: #fff; background: var(--primary); }
+.panel-search-button:hover { background: #0f66b4; }
+.conversation-toolbar { padding: 12px 12px 10px; border-bottom: 1px solid var(--line); }
+.conversation-toolbar .panel-title { padding: 0 0 8px; }
+.conversation-toolbar .panel-search { padding: 0; }
 
 .agent-filter, .agent-item {
   display: flex;
@@ -80,9 +88,13 @@ button { cursor: pointer; }
 .agent-filter:hover, .agent-item:hover, .conversation-item:hover { background: #f7fafc; }
 .agent-filter.active, .agent-item.active { border-left-color: var(--primary); color: #0f5ca8; background: var(--primary-soft); }
 .agent-list { display: grid; gap: 2px; }
+.agent-item { align-items: flex-start; }
 .agent-meta { min-width: 0; flex: 1; }
-.agent-name { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.agent-sub { color: var(--muted); font-size: 12px; }
+.agent-name { display: block; overflow-wrap: anywhere; font-weight: 500; line-height: 1.45; word-break: break-word; }
+.agent-sub { display: flex; margin-top: 3px; flex-wrap: wrap; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.agent-unread { display: inline-flex; padding: 1px 5px; border-radius: 9px; color: #fff; font-size: 11px; line-height: 16px; background: var(--danger); }
+.agent-unread.empty { padding: 0; color: var(--muted); line-height: inherit; background: transparent; }
+.panel-empty { padding-top: 12px; }
 
 .avatar {
   width: 30px;
@@ -94,7 +106,7 @@ button { cursor: pointer; }
   background: #eef2f6;
 }
 
-.conversation-list { overflow: auto; flex: 1; }
+.conversation-list { overflow: auto; min-height: 0; flex: 1; }
 .conversation-item {
   display: grid;
   width: 100%;

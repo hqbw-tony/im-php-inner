@@ -7,6 +7,8 @@
     agents: [],
     chats: [],
     agentUserId: 0,
+    agentKeyword: '',
+    customerKeyword: '',
     selectedChat: null,
     pendingFile: null,
     pollTimer: 0
@@ -15,6 +17,19 @@
   var dom = {};
 
   function $(id) { return document.getElementById(id); }
+
+  function parseJsonResponse(response, path) {
+    return response.text().then(function (text) {
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        if (/<!doctype|<html/i.test(text)) {
+          throw new Error(path + ' 接口返回了网页内容，请检查网关转发配置');
+        }
+        throw new Error(path + ' 接口返回的数据格式错误');
+      }
+    });
+  }
 
   function request(path, data) {
     var body = new URLSearchParams();
@@ -25,25 +40,60 @@
       method: 'POST',
       headers: {
         'Authorization': state.authToken,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
       },
       body: body.toString(),
       credentials: 'same-origin'
-    }).then(function (response) { return response.json(); });
+    }).then(function (response) { return parseJsonResponse(response, path); });
   }
 
   function login(token) {
     return fetch('/common/pub/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
       body: new URLSearchParams({ token: token, terminal: 'web' }).toString(),
       credentials: 'same-origin'
-    }).then(function (response) { return response.json(); });
+    }).then(function (response) { return parseJsonResponse(response, '/common/pub/login'); });
   }
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>'"]/g, function (char) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char];
+    });
+  }
+
+  function plainText(value) {
+    var holder = document.createElement('div');
+    holder.innerHTML = String(value == null ? '' : value)
+      .replace(/<br\s*\/?\s*>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n');
+    return (holder.textContent || '').replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function matchesKeyword(keyword, values) {
+    var needle = String(keyword || '').trim().toLowerCase();
+    if (!needle) return true;
+    return values.some(function (value) {
+      return String(value == null ? '' : value).toLowerCase().indexOf(needle) !== -1;
+    });
+  }
+
+  function visibleAgents() {
+    return state.agents.filter(function (agent) {
+      return matchesKeyword(state.agentKeyword, [agent.displayName, agent.realname, agent.external_agent_id, agent.im_user_id]);
+    });
+  }
+
+  function visibleChats() {
+    return state.chats.filter(function (chat) {
+      var customer = chat.customer || {};
+      return matchesKeyword(state.customerKeyword, [customer.displayName, customer.realname, customer.external_user_id, customer.im_user_id]);
     });
   }
 
@@ -79,11 +129,15 @@
 
   function renderAgents() {
     dom.allAgents.classList.toggle('active', !state.agentUserId);
-    dom.agentList.innerHTML = state.agents.map(function (agent) {
+    var agents = visibleAgents();
+    dom.agentEmpty.hidden = agents.length > 0;
+    dom.agentList.innerHTML = agents.map(function (agent) {
       var active = Number(agent.im_user_id) === Number(state.agentUserId) ? ' active' : '';
+      var unreadCustomers = Number(agent.unread_customer_count || 0);
+      var unreadClass = unreadCustomers ? '' : ' empty';
       return '<button class="agent-item' + active + '" type="button" data-agent-id="' + Number(agent.im_user_id) + '">' +
-        avatar(agent) + '<span class="agent-meta"><span class="agent-name">' + escapeHtml(agent.displayName) + '</span>' +
-        '<span class="agent-sub">' + Number(agent.session_count || 0) + ' 个会话</span></span></button>';
+        avatar(agent) + '<span class="agent-meta"><span class="agent-name">' + escapeHtml(agent.displayName || agent.realname || agent.external_agent_id || '') + '</span>' +
+        '<span class="agent-sub"><span>' + Number(agent.session_count || 0) + ' 个会话</span><span class="agent-unread' + unreadClass + '">' + (unreadCustomers > 99 ? '99+' : unreadCustomers) + ' 个客户未读</span></span></span></button>';
     }).join('');
     Array.prototype.forEach.call(dom.agentList.querySelectorAll('[data-agent-id]'), function (button) {
       button.addEventListener('click', function () { selectAgent(Number(button.getAttribute('data-agent-id'))); });
@@ -93,13 +147,15 @@
   function messagePreview(message) {
     if (!message) return '暂无消息';
     var types = { image: '[图片]', file: '[文件]', video: '[视频]', voice: '[语音]', emoji: '[表情]' };
-    return types[message.type] || String(message.content || '').replace(/\s+/g, ' ').trim() || '暂无消息';
+    return types[message.type] || plainText(message.content).replace(/\s+/g, ' ').trim() || '暂无消息';
   }
 
   function renderChats() {
     dom.conversationTitle.textContent = state.agentUserId ? '代理会话' : '全部会话';
-    dom.conversationEmpty.hidden = state.chats.length > 0;
-    dom.conversationList.innerHTML = state.chats.map(function (chat) {
+    var chats = visibleChats();
+    dom.conversationEmpty.hidden = chats.length > 0;
+    dom.conversationEmpty.textContent = state.customerKeyword ? '暂无匹配客户' : '暂无会话';
+    dom.conversationList.innerHTML = chats.map(function (chat) {
       var active = state.selectedChat && Number(state.selectedChat.session_id) === Number(chat.session_id) ? ' active' : '';
       var unread = Number(chat.unread || 0);
       return '<button class="conversation-item' + active + '" type="button" data-session-id="' + Number(chat.session_id) + '">' +
@@ -129,7 +185,7 @@
       var href = message.download || message.content;
       return '<a class="message-file" href="' + escapeHtml(href) + '" target="_blank" rel="noopener">' + escapeHtml(message.fileName || '查看文件') + '</a>';
     }
-    return escapeHtml(message.content || '');
+    return escapeHtml(plainText(message.content));
   }
 
   function renderMessages(messages) {
@@ -161,6 +217,9 @@
         var replacement = state.chats.filter(function (chat) { return Number(chat.session_id) === Number(state.selectedChat.session_id); })[0];
         state.selectedChat = replacement || null;
       }
+      if (state.selectedChat && !visibleChats().some(function (chat) { return Number(chat.session_id) === Number(state.selectedChat.session_id); })) {
+        state.selectedChat = null;
+      }
       renderChats();
       if (!state.selectedChat) showEmptyChat();
     });
@@ -171,7 +230,7 @@
     return request('/enterprise/im/getManagerMessageList', { session_id: state.selectedChat.session_id, limit: 60 }).then(function (response) {
       if (response.code !== 0) throw new Error(response.msg || '获取消息失败');
       renderMessages(response.data || []);
-      return loadChats();
+      return loadChats().then(loadAgents);
     });
   }
 
@@ -199,6 +258,20 @@
     loadMessages().catch(function (error) { showToast(error.message); });
   }
 
+  function searchAgents() {
+    state.agentKeyword = dom.agentSearchInput.value.trim();
+    renderAgents();
+  }
+
+  function searchCustomers() {
+    state.customerKeyword = dom.customerSearchInput.value.trim();
+    if (state.selectedChat && !visibleChats().some(function (chat) { return Number(chat.session_id) === Number(state.selectedChat.session_id); })) {
+      state.selectedChat = null;
+      showEmptyChat();
+    }
+    renderChats();
+  }
+
   function clearPendingFile() {
     state.pendingFile = null;
     dom.uploadName.textContent = '';
@@ -212,10 +285,14 @@
     dom.uploadName.textContent = '正在上传 ' + file.name;
     fetch('/common/upload/uploadFile', {
       method: 'POST',
-      headers: { 'Authorization': state.authToken },
+      headers: {
+        'Authorization': state.authToken,
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       body: formData,
       credentials: 'same-origin'
-    }).then(function (response) { return response.json(); }).then(function (response) {
+    }).then(function (response) { return parseJsonResponse(response, '/common/upload/uploadFile'); }).then(function (response) {
       if (response.code !== 0) throw new Error(response.msg || '文件上传失败');
       var fileInfo = response.data || {};
       var typeMap = { 2: 'image', 4: 'video' };
@@ -244,7 +321,11 @@
       if (response.code !== 0) throw new Error(response.msg || '消息发送失败');
       dom.messageInput.value = '';
       clearPendingFile();
-      return loadMessages();
+      loadMessages().catch(function (error) {
+        if (window.console && window.console.warn) {
+          window.console.warn('消息已发送，但会话刷新失败：', error);
+        }
+      });
     }).catch(function (error) {
       showToast(error.message);
     }).finally(function () {
@@ -260,6 +341,20 @@
 
   function bindEvents() {
     dom.allAgents.addEventListener('click', function () { selectAgent(0); });
+    dom.agentSearchButton.addEventListener('click', searchAgents);
+    dom.agentSearchInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchAgents();
+      }
+    });
+    dom.customerSearchButton.addEventListener('click', searchCustomers);
+    dom.customerSearchInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        searchCustomers();
+      }
+    });
     dom.refreshButton.addEventListener('click', refreshCurrent);
     dom.logoutButton.addEventListener('click', function () {
       window.sessionStorage.removeItem('third-manager-auth');
@@ -281,8 +376,13 @@
     dom.workspace = $('workspace');
     dom.managerName = $('manager-name');
     dom.allAgents = $('all-agents');
+    dom.agentSearchInput = $('agent-search-input');
+    dom.agentSearchButton = $('agent-search-button');
     dom.agentList = $('agent-list');
+    dom.agentEmpty = $('agent-empty');
     dom.conversationTitle = $('conversation-title');
+    dom.customerSearchInput = $('customer-search-input');
+    dom.customerSearchButton = $('customer-search-button');
     dom.conversationList = $('conversation-list');
     dom.conversationEmpty = $('conversation-empty');
     dom.chatEmpty = $('chat-empty');
@@ -321,7 +421,7 @@
     }).then(function () {
       state.pollTimer = window.setInterval(function () {
         if (document.hidden) return;
-        loadChats().then(function () {
+        loadAgents().then(loadChats).then(function () {
           if (state.selectedChat) return loadMessages();
         }).catch(function () {});
       }, 10000);

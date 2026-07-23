@@ -49,10 +49,39 @@ class Im extends BaseController
             'delete_time' => 0,
         ])->order('id', 'desc')->select()->toArray();
         $users = $this->getManagerUsers(array_column($maps, 'user_id'));
-        $sessionCount = ThirdChatSession::where([
+        $sessions = ThirdChatSession::where([
             'platform_id' => $platformId,
             'status' => 1,
-        ])->group('agent_user_id')->column('COUNT(*)', 'agent_user_id');
+        ])->field('agent_user_id,chat_identify')->select()->toArray();
+        $sessionCount = [];
+        $chatAgentMap = [];
+        foreach ($sessions as $session) {
+            $agentId = (int)$session['agent_user_id'];
+            $chatIdentify = (string)$session['chat_identify'];
+            $sessionCount[$agentId] = (int)($sessionCount[$agentId] ?? 0) + 1;
+            if ($chatIdentify !== '') {
+                $chatAgentMap[$chatIdentify] = $agentId;
+            }
+        }
+        $unreadCustomerCount = [];
+        if ($chatAgentMap) {
+            $unreadRows = Db::name('message')
+                ->field('chat_identify,to_user')
+                ->where('chat_identify', 'in', array_keys($chatAgentMap))
+                ->where('is_group', 0)
+                ->where('is_read', 0)
+                ->where('status', 1)
+                ->group('chat_identify,to_user')
+                ->select()
+                ->toArray();
+            foreach ($unreadRows as $unreadRow) {
+                $chatIdentify = (string)$unreadRow['chat_identify'];
+                $agentId = (int)($chatAgentMap[$chatIdentify] ?? 0);
+                if ($agentId && $agentId === (int)$unreadRow['to_user']) {
+                    $unreadCustomerCount[$agentId] = (int)($unreadCustomerCount[$agentId] ?? 0) + 1;
+                }
+            }
+        }
         $data = [];
         foreach ($maps as $map) {
             $userId = (int)$map['user_id'];
@@ -62,6 +91,7 @@ class Im extends BaseController
             $data[] = array_merge($this->managerUserPayload($users[$userId]), [
                 'external_agent_id' => (string)$map['external_user_id'],
                 'session_count' => (int)($sessionCount[$userId] ?? 0),
+                'unread_customer_count' => (int)($unreadCustomerCount[$userId] ?? 0),
             ]);
         }
         return success('', $data, count($data));

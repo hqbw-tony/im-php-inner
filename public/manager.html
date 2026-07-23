@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>代理会话管理</title>
-  <link rel="stylesheet" href="assets/css/manager-chat.css?v=20260723-1">
+  <link rel="stylesheet" href="assets/css/manager-chat.css?v=20260723-2">
 </head>
 <body>
   <div id="manager-app" class="manager-app">
@@ -21,11 +21,22 @@
       <main class="manager-layout">
         <aside class="agent-panel">
           <div class="panel-title">代理</div>
+          <div class="panel-search">
+            <input id="agent-search-input" class="panel-search-input" type="search" maxlength="100" placeholder="搜索代理名称或编号">
+            <button id="agent-search-button" class="panel-search-button" type="button">搜索</button>
+          </div>
           <button id="all-agents" class="agent-filter active" type="button">全部代理</button>
           <div id="agent-list" class="agent-list"></div>
+          <div id="agent-empty" class="empty-state panel-empty" hidden>暂无匹配代理</div>
         </aside>
         <section class="conversation-panel">
-          <div id="conversation-title" class="panel-title">全部会话</div>
+          <div class="conversation-toolbar">
+            <div id="conversation-title" class="panel-title">全部会话</div>
+            <div class="panel-search">
+              <input id="customer-search-input" class="panel-search-input" type="search" maxlength="100" placeholder="搜索客户名称或编号">
+              <button id="customer-search-button" class="panel-search-button" type="button">搜索</button>
+            </div>
+          </div>
           <div id="conversation-list" class="conversation-list"></div>
           <div id="conversation-empty" class="empty-state" hidden>暂无会话</div>
         </section>
@@ -52,6 +63,6 @@
     </div>
     <div id="toast" class="toast" hidden></div>
   </div>
-  <script src="assets/js/manager-chat.js?v=20260723-1"></script>
+  <script src="assets/js/manager-chat.js?v=20260723-3"></script>
 </body>
 </html>
