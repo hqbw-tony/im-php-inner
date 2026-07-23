@@ -242,6 +242,18 @@ class Im extends BaseController
             return warning('代理账号不存在或已禁用');
         }
         $param['id'] = trim((string)($param['id'] ?? '')) ?: \utils\Str::getUuid();
+        $existing = Message::where([
+            'id' => $param['id'],
+            'chat_identify' => $session['chat_identify'],
+            'from_user' => (int)$agent['user_id'],
+            'status' => 1,
+        ])->find();
+        if ($existing) {
+            return success('', [
+                'id' => $existing['id'],
+                'msg_id' => (int)$existing['msg_id'],
+            ]);
+        }
         $param['user_id'] = (int)$agent['user_id'];
         $param['toContactId'] = (int)$session['customer_user_id'];
         $param['is_group'] = 0;

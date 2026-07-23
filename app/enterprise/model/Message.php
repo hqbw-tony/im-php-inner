@@ -564,6 +564,7 @@ class Message extends BaseModel
         // 拼接消息推送
         $type=$is_group?'group':'simple';
         $sendData=$param;
+        $sendData['file_id']=(int)($param['file_id'] ?? 0);
         $sendData['status']='succeed';
         $sendData['at']=$atList;
         $sendData['msg_id']=$message->msg_id;

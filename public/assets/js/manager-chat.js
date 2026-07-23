@@ -283,6 +283,13 @@
     dom.uploadInput.value = '';
   }
 
+  function createMessageId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    return 'manager-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  }
+
   function uploadFile(file) {
     if (!file) return;
     var formData = new FormData();
@@ -302,6 +309,7 @@
       var fileInfo = response.data || {};
       var typeMap = { 2: 'image', 4: 'video' };
       state.pendingFile = {
+        id: createMessageId(),
         content: fileInfo.src,
         type: typeMap[fileInfo.cate] || 'file',
         file_name: fileInfo.name ? fileInfo.name + (fileInfo.ext ? '.' + fileInfo.ext : '') : file.name,
@@ -315,14 +323,30 @@
     });
   }
 
+  function sendManagerMessage(payload, retried) {
+    return request('/enterprise/im/managerSendMessage', payload).then(function (response) {
+      if (response.code !== 0) {
+        var error = new Error(response.msg || '发送消息失败');
+        error.isBusinessError = true;
+        throw error;
+      }
+      return response;
+    }).catch(function (error) {
+      if (!retried && !error.isBusinessError && String(error.message || '').indexOf('接口返回') !== -1) {
+        return sendManagerMessage(payload, true);
+      }
+      throw error;
+    });
+  }
+
   function sendMessage() {
     if (!state.selectedChat) return;
     var text = dom.messageInput.value.trim();
-    var payload = state.pendingFile ? Object.assign({}, state.pendingFile) : { type: 'text', content: text };
+    var payload = state.pendingFile ? Object.assign({}, state.pendingFile) : { id: createMessageId(), type: 'text', content: text };
     if (!payload.content) return;
     payload.session_id = state.selectedChat.session_id;
     dom.sendButton.disabled = true;
-    request('/enterprise/im/managerSendMessage', payload).then(function (response) {
+    sendManagerMessage(payload, false).then(function (response) {
       if (response.code !== 0) throw new Error(response.msg || '消息发送失败');
       dom.messageInput.value = '';
       clearPendingFile();
