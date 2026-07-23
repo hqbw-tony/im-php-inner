@@ -159,7 +159,7 @@ class Im extends BaseController
                 continue;
             }
             $lastMessage = $lastMessageMap[$session['chat_identify']] ?? null;
-            $lastTime = (int)($lastMessage['create_time'] ?? $session['last_msg_time']);
+            $lastTime = $this->managerTimestamp($lastMessage['create_time'] ?? $session['last_msg_time']);
             $data[] = [
                 'session_id' => (int)$session['id'],
                 'chat_identify' => $session['chat_identify'],
@@ -762,6 +762,22 @@ class Im extends BaseController
         ];
     }
 
+    protected function managerTimestamp($value)
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->getTimestamp();
+        }
+        if (is_numeric($value)) {
+            $timestamp = (int)$value;
+            return $timestamp > 99999999999 ? (int)floor($timestamp / 1000) : $timestamp;
+        }
+        if (is_string($value) && $value !== '') {
+            $timestamp = strtotime($value);
+            return $timestamp === false ? 0 : $timestamp;
+        }
+        return 0;
+    }
+
     protected function managerMessageSummary(array $message)
     {
         $content = str_encipher($message['content'] ?? '', false);
@@ -773,7 +789,7 @@ class Im extends BaseController
             'type' => $message['type'],
             'content' => Message::renderMessageContent($message, $content, $this->uid),
             'from_user' => (int)$message['from_user'],
-            'send_time' => (int)$message['create_time'] * 1000,
+            'send_time' => $this->managerTimestamp($message['create_time'] ?? 0) * 1000,
         ];
     }
 
@@ -799,7 +815,7 @@ class Im extends BaseController
                 'id' => $message['id'],
                 'status' => 'succeed',
                 'type' => $message['type'],
-                'sendTime' => (int)$message['create_time'] * 1000,
+                'sendTime' => $this->managerTimestamp($message['create_time'] ?? 0) * 1000,
                 'content' => Message::renderMessageContent($message, $content, $this->uid),
                 'preview' => $preview,
                 'download' => $message['file_id'] ? getMainHost() . '/filedown/' . encryptIds($message['file_id']) : '',
