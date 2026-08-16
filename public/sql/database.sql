@@ -88,6 +88,7 @@ CREATE TABLE `yu_group` (
   `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '团队名称',
   `name_py` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '团队的拼音',
   `avatar` varchar(191) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '群聊头像',
+  `avatar_mode` tinyint(1) NOT NULL DEFAULT '0' COMMENT '头像模式:0自动拼图,1自定义头像',
   `level` tinyint(1) NOT NULL DEFAULT '1' COMMENT '等级',
   `create_user` int(11) NOT NULL DEFAULT '0' COMMENT '创建人',
   `create_time` int(11) NOT NULL DEFAULT '0' COMMENT '创建时间',

@@ -57,6 +57,14 @@ class Work
     {
         $group_id=$data['group_id'] ?? 0;
         if(!$group_id){ return false;}
+        $group = Group::where('group_id', $group_id)->find();
+        if (!$group) {
+            return false;
+        }
+        // 手动上传的群头像不参与成员拼图生成，避免成员变更时被自动覆盖。
+        if ((int)($group['avatar_mode'] ?? 0) === 1) {
+            return true;
+        }
         $userList = GroupUser::where(['group_id' => $group_id,'status'=>1])->limit(9)->column('user_id');
         $userList = User::where('user_id', 'in', $userList)->select()->toArray();
         $imgList  = [];

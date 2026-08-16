@@ -6,12 +6,59 @@
  */
 namespace app\manage\controller;
 use app\BaseController;
+use app\common\controller\Upload;
 use app\enterprise\model\{User as UserModel,GroupUser,Group as GroupModel,Message};
 use think\facade\Db;
 use utils\Str;
 
 class Group extends BaseController
 {
+    /**
+     * 更新后台管理群聊的自定义头像，并通知全部群成员刷新本地群资料。
+     */
+    public function editAvatar()
+    {
+        $groupId = (int)$this->request->param('group_id', 0);
+        $group = GroupModel::where('group_id', $groupId)->find();
+        if (!$group) {
+            return warning(lang('group.exist'));
+        }
+
+        $file = $this->request->file('file');
+        if (!$file) {
+            return warning(lang('system.notNull'));
+        }
+
+        $extension = strtolower((string)$file->extension());
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)
+            || !@getimagesize($file->getRealPath())) {
+            return warning(lang('file.typeNotSupport'));
+        }
+
+        try {
+            $upload = new Upload();
+            $fileInfo = $upload->upload([], $file, 'group-avatar/' . $groupId . '/');
+            $avatar = (string)($fileInfo['src'] ?? '');
+            if ($avatar === '') {
+                return warning(lang('system.editFail'));
+            }
+
+            GroupModel::where('group_id', $groupId)->update([
+                'avatar' => $avatar,
+                'avatar_mode' => 1,
+            ]);
+
+            $avatarUrl = avatarUrl($avatar, $group['name'], $groupId, 120, 1);
+            wsSendMsg($groupId, 'setManager', [
+                'group_id' => 'group-' . $groupId,
+                'avatar' => $avatarUrl,
+            ], 1);
+            return success(lang('system.editOk'), ['avatar' => $avatarUrl, 'avatar_mode' => 1]);
+        } catch (\Exception $e) {
+            return error($e->getMessage());
+        }
+    }
+
     // 获取群聊列表
     public function index()
     {
