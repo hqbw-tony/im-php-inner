@@ -6,6 +6,7 @@
  */
 namespace app\manage\controller;
 use app\BaseController;
+use app\common\controller\Upload;
 use app\enterprise\model\{User as UserModel,GroupUser,Friend};
 use think\facade\Db;
 use think\facade\Cache;
@@ -97,6 +98,46 @@ class User extends BaseController
             return success(lang('system.editOk'), $data);
         }catch (\Exception $e){
             return error(lang('system.editFail'));
+        }
+    }
+
+    /**
+     * 后台修改指定成员头像。三方会话接口后续同步头像时，仍以最后一次写入为准。
+     */
+    public function editAvatar()
+    {
+        $userId = (int)$this->request->param('user_id', 0);
+        $user = UserModel::where('user_id', $userId)->find();
+        if (!$user) {
+            return warning(lang('user.exist'));
+        }
+
+        $file = $this->request->file('file');
+        if (!$file) {
+            return warning(lang('system.notNull'));
+        }
+
+        $extension = strtolower((string)$file->extension());
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)
+            || !@getimagesize($file->getRealPath())) {
+            return warning(lang('file.typeNotSupport'));
+        }
+
+        try {
+            $upload = new Upload();
+            $fileInfo = $upload->upload([], $file, 'avatar/' . $userId . '/');
+            $avatar = (string)($fileInfo['src'] ?? '');
+            if ($avatar === '') {
+                return warning(lang('system.editFail'));
+            }
+
+            UserModel::where('user_id', $userId)->update(['avatar' => $avatar]);
+            return success(lang('system.editOk'), [
+                'user_id' => $userId,
+                'avatar' => avatarUrl($avatar, $user['realname'], $userId, 120),
+            ]);
+        } catch (\Exception $e) {
+            return error($e->getMessage());
         }
     }
 
