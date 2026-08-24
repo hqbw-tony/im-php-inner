@@ -12,6 +12,7 @@ class Config extends BaseModel
     protected $json = ['value'];
     protected $jsonAssoc = true;
     protected static $clientLangList=['zh-cn','en-us','ja','ko'];
+    protected static $friendAddModeList=[1,2,3];
 
     public static function normalizeClientDefaultLang($language)
     {
@@ -30,6 +31,27 @@ class Config extends BaseModel
         ];
         $language=$map[$language] ?? $language;
         return in_array($language,self::$clientLangList,true) ? $language : '';
+    }
+
+    /**
+     * 规范化加好友通过方式：1 全部确认，2 指定发起人直通，3 全部直通。
+     */
+    public static function normalizeFriendAddMode($mode)
+    {
+        $mode=(int)$mode;
+        return in_array($mode,self::$friendAddModeList,true) ? $mode : 1;
+    }
+
+    /**
+     * 聊天配置缺少好友通过方式时，按兼容旧系统的“全部确认”处理。
+     */
+    public static function normalizeChatInfo($value)
+    {
+        if(!is_array($value)){
+            $value=[];
+        }
+        $value['friendAddMode']=self::normalizeFriendAddMode($value['friendAddMode'] ?? 1);
+        return $value;
     }
 
     // 获取系统配置信息
@@ -53,6 +75,8 @@ class Config extends BaseModel
                     $value['size'] = $v['value']['size'];
                     $value['preview'] = $v['value']['preview'];
                     $value['fileExt'] = $v['value']['fileExt'];
+                }elseif($v['name']=='chatInfo'){
+                    $value=self::normalizeChatInfo($v['value']);
                 }else{
                     $value=$v['value'];
                 }

@@ -66,7 +66,6 @@ class Friend extends BaseController
                 return warning(lang('friend.refuse'));
             }
         }
-        $status=2;
         $otherFriend=FriendModel::where(['friend_user_id'=>$this->uid,'create_user'=>$user_id])->find();
         if($otherFriend){
             if($otherFriend->status==3){
@@ -83,7 +82,23 @@ class Friend extends BaseController
                 return success(lang('system.addOk'));
             }
         }
+        $friendAddMode=(int)($this->chatSetting['friendAddMode'] ?? 1);
+        $isDirectAdd=$friendAddMode===3;
+        if($friendAddMode===2){
+            // 指定用户直通模式只授予发起方，且上方黑名单、重复关系判断仍然优先执行。
+            $isDirectAdd=(int)User::where('user_id',$this->uid)->value('friend_direct_add')===1;
+        }
         $applyTime=time();
+        if($isDirectAdd){
+            FriendModel::acceptPair($this->uid,$user_id,$applyTime,[
+                'remark'=>$param['remark'] ?? '',
+                'is_invite'=>1,
+                'apply_time'=>$applyTime,
+            ]);
+            $this->pushAcceptedContacts($this->uid,$user_id);
+            return success(lang('system.addOk'));
+        }
+        $status=2;
         $data=[
             'friend_user_id'=>$user_id,
             'status'=>$status,

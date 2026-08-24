@@ -185,6 +185,25 @@ class User extends BaseController
         }
     }
 
+    /**
+     * 设置成员发起好友申请时的免验证权限。
+     */
+    public function setFriendDirectAdd()
+    {
+        $user_id=(int)$this->request->param('user_id',0);
+        $user=UserModel::find($user_id);
+        if(!$user){
+            return warning(lang('user.exist'));
+        }
+        try{
+            $enabled=(int)$this->request->param('friend_direct_add',0)===1 ? 1 : 0;
+            UserModel::where('user_id',$user_id)->update(['friend_direct_add'=>$enabled]);
+            return success(lang('system.editOk'));
+        }catch (\Exception $e){
+            return error(lang('system.editFail'));
+        }
+    }
+
     // 获取用户信息
     public function detail()
     {
