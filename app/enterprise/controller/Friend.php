@@ -56,11 +56,28 @@ class Friend extends BaseController
                return warning(lang('friend.limit'));
             }
          }
+        $friendAddMode=(int)($this->chatSetting['friendAddMode'] ?? 1);
+        $isDirectAdd=$friendAddMode===3;
+        if($friendAddMode===2){
+            // 指定用户直通模式只授予发起方，且黑名单、拒绝关系仍然优先执行。
+            $isDirectAdd=(int)User::where('user_id',$this->uid)->value('friend_direct_add')===1;
+        }
         $friend=FriendModel::where(['friend_user_id'=>$user_id,'create_user'=>$this->uid])->find();
         if($friend){
             if($friend->status==1){
                 return warning(lang('friend.already'));
             }elseif($friend->status==2){
+                // 历史申请在当前规则已允许直通时，重试添加即升级为双方好友。
+                if($isDirectAdd){
+                    $applyTime=time();
+                    FriendModel::acceptPair($this->uid,$user_id,$applyTime,[
+                        'remark'=>$param['remark'] ?? '',
+                        'is_invite'=>1,
+                        'apply_time'=>$applyTime,
+                    ]);
+                    $this->pushAcceptedContacts($this->uid,$user_id);
+                    return success(lang('system.addOk'));
+                }
                 return warning(lang('friend.repeatApply'));
             }elseif($friend->status==3){
                 return warning(lang('friend.refuse'));
@@ -81,12 +98,6 @@ class Friend extends BaseController
                 $this->pushAcceptedContacts($this->uid,$user_id);
                 return success(lang('system.addOk'));
             }
-        }
-        $friendAddMode=(int)($this->chatSetting['friendAddMode'] ?? 1);
-        $isDirectAdd=$friendAddMode===3;
-        if($friendAddMode===2){
-            // 指定用户直通模式只授予发起方，且上方黑名单、重复关系判断仍然优先执行。
-            $isDirectAdd=(int)User::where('user_id',$this->uid)->value('friend_direct_add')===1;
         }
         $applyTime=time();
         if($isDirectAdd){
